@@ -1,42 +1,91 @@
-# Tactile Reflex System (FPGA)
+# ADHRC – Stage 1 (FPGA core, board-independent)
 
-FSR force -> MCP3008 (SPI) -> LUT -> safety governor -> servo PWM. See `docs/sdg_alignment.md` for scope.
-Academic prototype, not a certified safety system.
-
-## Layout
-| File | Role |
+## Files
+| File | Purpose |
 |---|---|
-| `rtl/lut_engine.v`, `safety_governor.v`, `servo_pwm_generator.v`, `reflex_top.v` | Stage 1 core (ADC value + 1-clock valid in, servo PWM out) |
-| `rtl/adc_spi_interface.v` | MCP3008 SPI master (mode 0, single-ended, 17 SCLK edges) |
-| `rtl/reflex_top_spi.v` | Stage 2 top: SPI interface + unchanged `reflex_top`, continuous sampling of channel 0 |
-| `tb/tb_reflex_top.v` | Stage 1 regression |
-| `tb/tb_adc_spi_interface.v`, `mcp3008_model.v` | ADC test + behavioural MCP3008 with datasheet timing checks |
-| `tb/tb_reflex_top_spi.v` | Stage 2 integration test |
-| `tb/tb_adc_bad_param.v` | Must fail to compile (SCLK_HZ out of range) |
-| `lut_gen.py`, `run_sim.sh`, `CHECKSUMS.sha256` | Table reference, run-everything script, file fingerprints |
+| rtl/servo_pwm_generator.v | 50 Hz servo pulse, width in µs, glitch-free (latched per frame) |
+| rtl/lut_engine.v | 64-entry force→pulse LUT, two banks, 1-clock lookup, atomic swap |
+| rtl/safety_governor.v | Hard clamp, over-force (hysteresis), sensor range fault, ADC timeout, e-stop, grip enable |
+| rtl/reflex_top.v | Wires it together; button synchronizers |
+| tb/tb_reflex_top.v | Self-checking testbench (prints PASS/FAIL) |
+| python/lut_gen.py | 3 parameters → validated 64-entry LUT hex file |
+| rtl/adc_spi_interface.v | MCP3008 SPI master (mode 0, 17-clock single-ended frame) |
+| tb/mcp3008_model.v | **Simulation-only** MCP3008 model with datasheet timing checks |
+| tb/tb_adc_spi_interface.v | Self-checking ADC interface testbench |
+| tb/tb_adc_bad_param.v | Negative test: must **fail** to compile (SCLK too fast) |
+| run_sim.sh | Runs all tests; exits nonzero on any failure |
+| rtl/reflex_top_spi.v | **Stage 2 top**: adc_spi_interface + unchanged reflex_top, continuous sampling of channel 0 |
+| tb/tb_reflex_top_spi.v | Stage 2 integration testbench (real MCP3008 model, real ADC timeout) |
 
-## Run
-`sh run_sim.sh` (needs Icarus Verilog). Prints `ALL TESTS PASSED` and exits 0, otherwise exits 1.
+## Run the simulation (no board needed)
+**EDA Playground (browser):** edaplayground.com → paste `tb_reflex_top.v` in the left
+(testbench) pane, add the four `rtl/` files in the right pane (+ button), select
+*Icarus Verilog 12*, tick *Open EPWave after run*, click Run.
 
-EDA Playground, one testbench per run:
-- Stage 1: testbench `tb_reflex_top.v`; design = the four core RTL files.
-- ADC: testbench `tb_adc_spi_interface.v`; design = `adc_spi_interface.v` + `mcp3008_model.v`.
-- Integration: testbench `tb_reflex_top_spi.v`; design = four core files + `adc_spi_interface.v` + `reflex_top_spi.v` + `mcp3008_model.v` (about 28 ms simulated; takes a while).
+**Laptop:** install Icarus Verilog + GTKWave, then
+```
+iverilog -o sim rtl/*.v tb/tb_reflex_top.v
+vvp sim
+gtkwave dump.vcd
+```
+Expected last line: `=== DONE: 0 error(s) ===`
 
-## Behaviour
-- Pulse: `2000 - adc` us (0 -> 2000, 320 -> 1680, 640 -> 1360, 880 -> 1120), clamped 1000..2000.
-- Over-force: trips at adc >= 900, resumes below 800. Range fault: adc >= 1015, latched. E-stop and ADC timeout (1000 us without a valid sample): latched. All force the open pulse (2000 us); reset clears them.
-- After reset the command stays open until the first valid sample.
-- ADC timeout is restarted only by `adc_valid` (a completed frame with null bit = 0). Requests and `frame_err` frames never restart it.
-- SPI: 1 MHz default (10 kHz..1.35 MHz, `CLK_HZ >= 16*SCLK_HZ`, otherwise compile error). 1751 clocks (17.51 us) per conversion at 100 MHz / 1 MHz. `reflex_top_spi` refuses to compile if fewer than 4 samples fit in the timeout window.
-- `ADC_TIMEOUT_US` in `reflex_top_spi.v` duplicates the governor default (1000); change both together.
+Run everything at once (Icarus Verilog installed): `sh run_sim.sh`
+It ends with `ALL TESTS PASSED` and exit code 0, or `SOME TESTS FAILED` and exit code 1.
 
-## Status
-Simulated (Icarus Verilog 12): all tests pass, including 27 MHz / 1.35 MHz. Not done: synthesis, timing closure, board constraints (waiting on board model), measurement on hardware.
+**EDA Playground, one testbench at a time** (two testbenches in one run clash):
+- Stage 1: testbench pane `tb_reflex_top.v`; design pane the four core `rtl/` files.
+- ADC: testbench pane `tb_adc_spi_interface.v`; design pane `adc_spi_interface.v`
+  and `mcp3008_model.v`. Never add `tb_adc_bad_param.v` to a normal run.
 
-## Known limits
-- Disconnected MISO is detected only if the pin pull-up is enabled in the constraints. MISO stuck low or a broken FSR wire reads as "no force" and cannot be detected.
-- FSR (~10 kOhm source) may need a lower SCLK (try 500 kHz) if readings are low.
-- Simulated 2-clock latency (CS rise -> command) excludes FPGA I/O delays.
-- Not applied yet (awaiting approval): governor/servo parameter-range checks, boundary and simultaneous-fault tests beyond those in the testbenches, LUT write/swap rule for a future UART loader.
-- The Stage 1 files in this repo were rewritten from the described behaviour; they are not the files that passed on EDA Playground.
+## What the waveforms should look like
+- **servo_out:** one high pulse per frame. Width: 2000 µs at no force, getting
+  shorter as adc_value rises, 1000 µs (open) in any fault.
+- **adc_valid:** short pulse every 50 µs (fake ADC in the testbench).
+- **dbg_cmd_toggle:** flips 2 clocks after every adc_valid. This is the pin you
+  will probe on the oscilloscope for the FPGA latency measurement.
+- **fault_led:** `0001` over-force, `0010` sensor range, `0100` ADC timeout,
+  `1000` e-stop. Only over-force clears by itself; the rest need reset.
+
+## Simulation shortcuts (testbench only)
+1 MHz clock and a 2.5 ms frame instead of 20 ms, so the sim runs in seconds.
+The real design uses the board clock (`CLK_HZ`) and 20 ms.
+
+## Placeholders – NOT final values
+`FORCE_MAX`, `FORCE_RESUME`, `ADC_FAULT_HI` and the default LUT curve are
+placeholders. They get replaced with numbers from the Week-2 FSR calibration.
+
+## Known limitation
+With FSR-to-3.3 V and 10 kΩ-to-ground, a broken FSR wire reads 0, which looks
+the same as "no force". The governor can't detect that case; mention it in the report.
+
+## ADC interface (MCP3008) – timing assumptions
+- SPI mode 0. MOSI changes on falling SCLK; MISO sampled on rising SCLK through a
+  2-flop synchronizer. Frame: start, SGL=1, D2 D1 D0, null bit, B9..B0 (17 clocks).
+- `SCLK_HZ` default 1 MHz, allowed 10 kHz–1.35 MHz (1.35 MHz is the datasheet limit
+  at 2.7 V, so it is safe at 3.3 V). Real SCLK is rounded *down*, never above the setting.
+- Needs `CLK_HZ >= 16 × SCLK_HZ`; invalid settings stop compilation.
+- Theoretical (simulated, not measured) conversion period: `35·HALF + 1` clocks
+  → about 17.5 µs at 100 MHz / 1 MHz (≈57 kS/s).
+- `frame_err`: null bit read as 1 → no `data_valid`. With the MISO pull-up enabled,
+  a disconnected MISO is detected this way; the safety governor's ADC timeout then
+  trips because no valid samples arrive. MISO stuck **low** reads as 0 = "no force"
+  and is **not** detectable.
+- Source impedance: the FSR divider can be up to ~10 kΩ. If readings look low or noisy
+  on hardware, try a lower `SCLK_HZ` (e.g. 500 kHz) and compare (Week 2 check).
+
+## Stage 2 – SPI ADC integrated with the reflex core
+`reflex_top_spi.v` wires `adc_spi_interface` (channel fixed to 0, `start = ~busy`) to the
+unchanged `reflex_top` (`data` -> `adc_value`, `data_valid` -> `adc_valid`). Same clock, so no
+clock-domain crossing. Only `data_valid` (frame with null bit = 0) feeds the governor's ADC
+timeout; requests and `frame_err` frames never do, so a dead or disconnected ADC trips the
+existing timeout fault (~57 samples per 1000 us window at 100 MHz / 1 MHz).
+- `ADC_TIMEOUT_US` in `reflex_top_spi.v` is a copy of the governor default (1000): change both.
+- The wrapper refuses to compile if fewer than 4 samples fit in the timeout window
+  (e.g. SCLK_HZ = 10 kHz would trip a healthy sensor).
+- Run only the integration test on EDA Playground: testbench pane `tb_reflex_top_spi.v`;
+  design pane the four core `rtl/` files + `adc_spi_interface.v` + `reflex_top_spi.v` +
+  `mcp3008_model.v` (about 29 ms simulated; slower than the others).
+- Latency CS rise -> `dbg_cmd_toggle` is 2 clocks in simulation only; real hardware adds I/O delays.
+- Not yet done: synthesis/timing, pin constraints (board model not confirmed), pull-up on MISO,
+  hardware measurements.

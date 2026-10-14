@@ -1,31 +1,31 @@
 #!/bin/sh
-# Runs every test; exits 1 on any failure (Icarus itself always exits 0).
-# Usage: sh run_sim.sh      (needs iverilog + vvp)
+# Runs every testbench with Icarus Verilog.
+# Exit code is nonzero if anything fails (Icarus itself always exits 0).
 cd "$(dirname "$0")" || exit 1
-B=$(mktemp -d); fail=0
-CORE="rtl/lut_engine.v rtl/safety_governor.v rtl/servo_pwm_generator.v rtl/reflex_top.v"
+fail=0
 
-run() {  # name, vvp-image-args...
+run() {
     name=$1; shift
-    out=$(vvp "$@") ; echo "$out" | grep -E 'INFO|FAIL|VIOLATION|DONE'
-    echo "$out" | grep -q '=== DONE: 0 error(s) ===' || { echo "!! $name FAILED"; fail=1; }
+    if ! iverilog -g2005 -o "sim_$name" "$@"; then
+        echo "COMPILE FAIL: $name"; fail=1; return
+    fi
+    vvp -n "sim_$name" | tee "sim_$name.log"
+    grep -q "=== DONE: 0 error(s) ===" "sim_$name.log" || { echo "TEST FAIL: $name"; fail=1; }
 }
 
-echo "--- Stage 1 regression";            iverilog -g2012 -o $B/s1 $CORE tb/tb_reflex_top.v || fail=1
-run stage1 $B/s1
-echo "--- ADC SPI (100 MHz / 1 MHz)";     iverilog -g2012 -o $B/a rtl/adc_spi_interface.v tb/mcp3008_model.v tb/tb_adc_spi_interface.v || fail=1
-run adc $B/a
-echo "--- ADC SPI worst case (27 MHz / 1.35 MHz)"
-iverilog -g2012 -P tb_adc_spi_interface.CLK_HZ=27000000 -P tb_adc_spi_interface.SCLK_HZ=1350000 \
-    -o $B/a27 rtl/adc_spi_interface.v tb/mcp3008_model.v tb/tb_adc_spi_interface.v || fail=1
-run adc27 $B/a27
-echo "--- Integration";                   iverilog -g2012 -o $B/s2 $CORE rtl/adc_spi_interface.v rtl/reflex_top_spi.v tb/mcp3008_model.v tb/tb_reflex_top_spi.v || fail=1
-run integration $B/s2
-echo "--- Bad parameter must not compile"
-if iverilog -g2012 -o $B/bad rtl/adc_spi_interface.v tb/tb_adc_bad_param.v 2>/dev/null; then
-    echo "!! bad-parameter test compiled (it must fail)"; fail=1
-else echo "OK: rejected at compile time"; fi
+RTL_CORE="rtl/reflex_top.v rtl/lut_engine.v rtl/safety_governor.v rtl/servo_pwm_generator.v"
+ADC="rtl/adc_spi_interface.v tb/mcp3008_model.v tb/tb_adc_spi_interface.v"
 
-rm -rf "$B"
+run reflex   $RTL_CORE tb/tb_reflex_top.v
+run adc      $ADC
+run adc_27m  -Ptb_adc_spi_interface.CLK_HZ=27000000 -Ptb_adc_spi_interface.SCLK_HZ=1350000 $ADC
+run spi_top  $RTL_CORE rtl/adc_spi_interface.v rtl/reflex_top_spi.v tb/mcp3008_model.v tb/tb_reflex_top_spi.v
+
+if iverilog -g2005 -o sim_bad rtl/adc_spi_interface.v tb/tb_adc_bad_param.v 2>/dev/null; then
+    echo "TEST FAIL: invalid SCLK_HZ was accepted"; fail=1
+else
+    echo "PASS  invalid SCLK_HZ rejected at compile time"
+fi
+
 [ $fail -eq 0 ] && echo "ALL TESTS PASSED" || echo "SOME TESTS FAILED"
 exit $fail

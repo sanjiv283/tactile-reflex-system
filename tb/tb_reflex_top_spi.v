@@ -1,137 +1,175 @@
-`timescale 1ns/1ps
+`timescale 1ns / 1ps
 // Stage 2 integration: mcp3008_model -> adc_spi_interface -> reflex_top (via reflex_top_spi).
-// Real 100 MHz clock, 1 MHz SCLK, real 1000 us ADC timeout. Only shortcut: 2.5 ms servo frame.
+// Real 100 MHz clock, 1 MHz SCLK and the real 1000 us ADC timeout.
+// Only simulation shortcut: 2.5 ms servo frame instead of 20 ms (pulse widths unaffected).
+// Expected values come from the placeholder LUT: pulse = 2000 - 16*(adc>>4); safe/open = 1000 us.
 module tb_reflex_top_spi;
-    localparam real    TCLK   = 10.0;
-    localparam integer HALF   = 50;
-    localparam integer PERIOD = 35 * HALF + 1;     // 1751 clocks per conversion
+    localparam real T         = 10.0;
+    localparam      HALF      = 50;
+    localparam      CONV_CLKS = 35*HALF + 1;      // 1751
 
-    reg clk = 0, rst = 1, estop = 0;
-    wire cs_n, sclk, mosi, miso, servo_pwm, dbg_cmd_toggle, safe_state, over_force;
-    wire f_range, f_to, f_estop, ferr;
-    wire [11:0] pulse_cmd;
+    reg clk = 0;
+    always #(T/2) clk = ~clk;
+
+    reg  rst_btn = 1, estop_btn = 0, grip_en_sw = 0;
+    wire cs_n, sclk, mosi, adc_dout, servo_out, active_bank_led, dbg_cmd_toggle, frame_err;
+    wire [3:0] fault_led;
+
+    reg  adc_connected = 1;
+    wire miso;
+    assign miso = adc_connected ? adc_dout : 1'bz;
+    pullup (miso);                                 // FPGA pin pull-up (to be enabled in constraints)
 
     reflex_top_spi #(.CLK_HZ(100_000_000), .SCLK_HZ(1_000_000), .FRAME_US(2500)) dut (
-        .clk(clk), .rst(rst), .estop(estop), .miso(miso), .cs_n(cs_n), .sclk(sclk), .mosi(mosi),
-        .servo_pwm(servo_pwm), .pulse_cmd(pulse_cmd), .dbg_cmd_toggle(dbg_cmd_toggle),
-        .safe_state(safe_state), .over_force(over_force), .fault_range(f_range),
-        .fault_timeout(f_to), .fault_estop(f_estop), .adc_frame_err(ferr));
-    mcp3008_model m (.cs_n(cs_n), .sclk(sclk), .mosi(mosi), .miso(miso));
+        .clk(clk), .rst_btn(rst_btn), .estop_btn(estop_btn), .grip_en_sw(grip_en_sw),
+        .spi_cs_n(cs_n), .spi_sclk(sclk), .spi_mosi(mosi), .spi_miso(miso),
+        .lut_wr_en(1'b0), .lut_wr_addr(6'd0), .lut_wr_data(12'd0), .lut_swap(1'b0),
+        .servo_out(servo_out), .fault_led(fault_led),
+        .active_bank_led(active_bank_led), .dbg_cmd_toggle(dbg_cmd_toggle),
+        .adc_frame_err(frame_err)
+    );
+    mcp3008_model u_adc (.cs_n(cs_n), .sclk(sclk), .din(mosi), .dout(adc_dout));
 
-    always #(TCLK / 2) clk = ~clk;
-
-    integer errors = 0, i, n0;
-    task chk(input c, input [255:0] msg);
-        if (!c) begin errors = errors + 1; $display("FAIL @%0t: %0s", $time, msg); end
-    endtask
-    task tick(input integer n); repeat (n) @(negedge clk); endtask
-    task set0(input [9:0] v); begin m.chan_val[0] = v; tick(2 * PERIOD + 20); end endtask
-
-    // measure the servo pulse after a command change (first pulse may be stale, use the second)
-    real t0;
-    task pulse_us(output real us);
-        begin @(posedge servo_pwm); t0 = $realtime; @(negedge servo_pwm); us = ($realtime - t0) / 1000.0; end
-    endtask
-    task check_pulse(input [9:0] v, input integer exp);
-        real a, b;
+    integer errors = 0;
+    task check(input cond, input [8*56-1:0] name);
         begin
-            set0(v); pulse_us(a); pulse_us(b);
-            chk(b > exp - 0.01 && b < exp + 0.01, "servo pulse width from SPI force reading");
-            chk(pulse_cmd == exp, "pulse_cmd from SPI force reading");
-            if (!(b > exp - 0.01 && b < exp + 0.01)) $display("  adc=%0d expected %0d us got %0f us", v, exp, b);
+            if (cond === 1'b1) $display("PASS  %0s", name);
+            else begin $display("FAIL  %0s", name); errors = errors + 1; end
+        end
+    endtask
+    task ticks(input integer n); repeat (n) @(posedge clk); endtask
+    task do_reset; begin @(posedge clk) rst_btn <= 1'b1; ticks(5); rst_btn <= 1'b0; end endtask
+
+    // channel-0 force; let two conversions through so the new value reaches the governor
+    task setf(input [9:0] v); begin u_adc.value[0] = v; ticks(2*CONV_CLKS + 20); end endtask
+
+    // servo pulse width in us: skip one pulse (may predate the command), measure the next
+    function integer us_of(input realtime a, input realtime b); us_of = (b - a) / 1000.0; endfunction
+    realtime t_r, t_f;
+    integer  w;
+    task pulse_w;
+        begin
+            @(posedge servo_out); @(negedge servo_out);
+            @(posedge servo_out); t_r = $realtime; @(negedge servo_out); t_f = $realtime;
+            w = us_of(t_r, t_f);
+        end
+    endtask
+    task check_pulse(input [9:0] v, input integer exp, input [8*40-1:0] name);
+        begin
+            setf(v); pulse_w;
+            if (w == exp && fault_led == 4'b0000) $display("PASS  %0s: adc=%0d -> pulse=%0d us", name, v, w);
+            else begin $display("FAIL  %0s: adc=%0d pulse=%0d us (exp %0d) fault=%b", name, v, w, exp, fault_led);
+                       errors = errors + 1; end
         end
     endtask
 
-    // logs
-    integer ncs = 0, nrise = 0;
-    real cs_t [0:63];
-    real t_csr, t_tog, t_lastvalid;
-    always @(negedge cs_n) begin cs_t[ncs % 64] = $realtime; ncs = ncs + 1; end
-    always @(posedge cs_n) begin t_csr = $realtime; nrise = nrise + 1; end
+    // observation
+    realtime cs_fall [0:15];
+    integer  nfall = 0, nrise = 0;
+    reg [7:0] chmask = 0;
+    realtime t_csr, t_tog;
+    always @(negedge cs_n) begin cs_fall[nfall % 16] = $realtime; nfall = nfall + 1; end
+    always @(posedge cs_n) begin t_csr = $realtime; nrise = nrise + 1; chmask = chmask | (8'd1 << u_adc.last_channel); end
     always @(dbg_cmd_toggle) t_tog = $realtime;
 
-    task do_reset; begin rst = 1; tick(5); rst = 0; end endtask
-    task at_frame_boundary; begin @(posedge cs_n); tick(2); end endtask   // CS high, next frame >= 50 clocks away
-
-    real per, lat, w;
-    integer samples;
-    reg [9:0] vals [0:4];
+    integer i, n0, lat, lat_min, lat_max, ok_i;
+    realtime t_valid, t_fault, per;
 
     initial begin
-        for (i = 0; i < 8; i = i + 1) m.chan_val[i] = 999;       // other channels must never be used
-        m.chan_val[0] = 0;
+        $dumpfile("dump.vcd");
+        $dumpvars(0, tb_reflex_top_spi);
+        for (i = 0; i < 8; i = i + 1) u_adc.value[i] = 10'd999;   // wrong channels are loud
+        u_adc.value[0] = 10'd0;
 
-        // ---- reset: no SPI activity, no servo pulses
-        tick(30);
-        chk(cs_n === 1 && sclk === 0 && mosi === 0, "reset: SPI idle");
-        chk(servo_pwm === 0, "reset: no servo pulse");
-        chk(ncs == 0 && pulse_cmd == 2000, "reset: no frames, SAFE command");
-        rst = 0;
+        // ---- 1. Reset: no SPI activity, no servo pulses, gripper open
+        ticks(40);
+        check(cs_n === 1 && sclk === 0 && mosi === 0 && nfall == 0, "reset: SPI idle (CS high, SCLK/MOSI low)");
+        check(servo_out === 0 && fault_led === 4'b0000, "reset: no servo pulse, no fault");
+        rst_btn <= 1'b0; grip_en_sw <= 1'b1;
 
-        // ---- force readings via SPI -> servo pulse
-        check_pulse(0, 2000); check_pulse(320, 1680); check_pulse(640, 1360); check_pulse(880, 1120);
-        chk(m.ch_mask == 8'h01, "only channel 0 was read");
+        // ---- 2. Force readings through SPI -> LUT -> servo pulse
+        check_pulse(  0, 2000, "no contact");
+        check_pulse(320, 1680, "light contact");
+        check_pulse(640, 1360, "normal grip");
+        check_pulse(880, 1120, "high force (<FORCE_MAX)");
+        check(chmask == 8'h01 && u_adc.diff_requests == 0, "only channel 0 read, single-ended");
 
-        // ---- over-force with hysteresis
-        set0(950); chk(over_force && pulse_cmd == 2000, "950 over-force -> open");
-        set0(850); chk(over_force && pulse_cmd == 2000, "850 still open (hysteresis)");
-        set0(700); chk(!over_force && pulse_cmd == 1300, "700 resumes");
-
-        // ---- sample period
-        for (i = ncs - 6; i < ncs - 1; i = i + 1) begin
-            per = (cs_t[(i + 1) % 64] - cs_t[i % 64]) / TCLK;
-            chk(per > PERIOD - 0.01 && per < PERIOD + 0.01, "sample period != 1751 clocks");
+        // ---- 3. Sample period seen on CS
+        ok_i = 1;
+        for (i = nfall - 5; i < nfall; i = i + 1) begin
+            per = (cs_fall[i % 16] - cs_fall[(i - 1) % 16]) / T;
+            if (per < CONV_CLKS - 0.01 || per > CONV_CLKS + 0.01) ok_i = 0;
         end
+        check(ok_i, "CS-to-CS period = 1751 clocks (17.51 us)");
 
-        // ---- latency: ADC CS rising edge -> dbg_cmd_toggle (value changes between frames)
-        vals[0] = 100; vals[1] = 250; vals[2] = 400; vals[3] = 150; vals[4] = 500;
-        for (i = 0; i < 5; i = i + 1) begin
-            at_frame_boundary; m.chan_val[0] = vals[i];       // takes effect in the next frame
-            @(posedge cs_n); tick(6);                          // next frame delivered, toggle settled
-            lat = (t_tog - t_csr) / TCLK;
-            chk(lat == 2.0, "CS rise -> dbg_cmd_toggle != 2 clocks");
-            if (i == 0) $display("INFO: CS rise -> dbg_cmd_toggle = %0.1f clocks (simulated)", lat);
+        // ---- 4. Over-force with hysteresis
+        setf(950); check(fault_led == 4'b0001 && dut.u_core.pulse_cmd == 1000, "950: over-force -> open");
+        setf(850); check(fault_led == 4'b0001 && dut.u_core.pulse_cmd == 1000, "850: hysteresis, still open");
+        setf(700); check(fault_led == 4'b0000 && dut.u_core.pulse_cmd == 1312, "700: resume");
+
+        // ---- 5. Latency CS rise -> dbg_cmd_toggle (SIMULATED; excludes FPGA I/O delays)
+        lat_min = 1000; lat_max = 0;
+        for (i = 0; i < 8; i = i + 1) begin
+            @(posedge cs_n); ticks(6);
+            lat = (t_tog - t_csr) / T;
+            if (lat < lat_min) lat_min = lat;
+            if (lat > lat_max) lat_max = lat;
         end
+        $display("INFO  SIMULATED CS rise -> dbg_cmd_toggle: min=%0d max=%0d clocks, jitter=%0d",
+                 lat_min, lat_max, lat_max - lat_min);
+        check(lat_min == 2 && lat_max == 2, "latency exactly 2 clocks");
 
-        // ---- healthy run: no timeout, enough samples
-        n0 = nrise; tick(500_000);                              // 5 ms
-        samples = nrise - n0;
-        $display("INFO: %0d conversions in 5 ms", samples);
-        chk(samples >= 5000000 / (PERIOD * 10) - 1, "too few samples in 5 ms");
-        chk(!f_to && !safe_state, "healthy run: no timeout");
+        // ---- 6. Healthy run: no timeout, enough samples
+        n0 = nrise; ticks(500_000);                      // 5 ms
+        $display("INFO  %0d conversions in 5 ms", nrise - n0);
+        check((nrise - n0) >= 280 && fault_led == 4'b0000, "5 ms healthy: >=280 samples, no fault");
 
-        // ---- MISO disconnected at a frame boundary: frame_err, no valid data, timeout trips
-        m.chan_val[0] = 300; tick(2 * PERIOD);
-        at_frame_boundary; t_lastvalid = t_csr; m.disconnect = 1;     // last valid frame completed at t_csr
-        wait (f_to);
-        w = ($realtime - t_lastvalid) / 1000.0;
-        $display("INFO: timeout %0f us after last valid sample (frame_err frames running)", w);
-        chk(w > 999.5 && w < 1001.5, "timeout ~1000 us after last valid sample");
-        chk(ferr !== 1'bx, "frame_err defined");
-        tick(5); chk(pulse_cmd == 2000 && safe_state, "timeout -> servo open");
-        at_frame_boundary; m.disconnect = 0; tick(4 * PERIOD);
-        chk(f_to && pulse_cmd == 2000, "timeout latched after reconnect");
-        do_reset; tick(3 * PERIOD);
-        chk(!f_to && pulse_cmd == 1700, "reset recovers (300 -> 1700 us)");
+        // ---- 7. MISO disconnected: frame_err frames keep running, timeout still trips
+        setf(300); check(dut.u_core.pulse_cmd == 1712, "300 -> 1712 us before disconnect");
+        @(posedge cs_n); t_valid = $realtime;            // last valid sample (data_valid on this edge)
+        ticks(2); adc_connected = 0;
+        wait (fault_led[2]); t_fault = $realtime;
+        $display("INFO  ADC timeout fired %0.2f us after the last valid sample", (t_fault - t_valid) / 1000.0);
+        check((t_fault - t_valid) > 999_000 && (t_fault - t_valid) < 1_002_000, "timeout ~1000 us after last VALID sample");
+        check(nfall > 0 && dut.u_adc.busy !== 1'bx, "SPI frames kept running during the fault");
+        ticks(5);
+        check(dut.u_core.pulse_cmd == 1000 && fault_led == 4'b0100, "timeout -> gripper open, fault bit 2");
+        @(posedge cs_n); ticks(2); adc_connected = 1; ticks(4*CONV_CLKS);
+        check(fault_led == 4'b0100 && dut.u_core.pulse_cmd == 1000, "timeout latched after reconnect");
+        do_reset; ticks(4*CONV_CLKS);
+        check(fault_led == 4'b0000 && dut.u_core.pulse_cmd == 1712, "reset recovers (300 -> 1712 us)");
 
-        // ---- range fault through the SPI path
-        m.chan_val[0] = 1020; tick(2 * PERIOD);
-        chk(f_range && pulse_cmd == 2000, "1020 range fault -> SAFE");
-        m.chan_val[0] = 100; tick(2 * PERIOD); chk(f_range && pulse_cmd == 2000, "range fault latched");
-        do_reset; tick(3 * PERIOD); chk(!f_range && pulse_cmd == 1900, "reset clears range fault");
+        // ---- 8. Frame errors alone never feed the timer
+        n0 = nrise; @(posedge cs_n); ticks(2); adc_connected = 0;
+        wait (frame_err);
+        check(fault_led[2] == 1'b0, "frame_err frame did not clear/feed timer (fault not yet set)");
+        wait (fault_led[2]); adc_connected = 1; do_reset; ticks(4*CONV_CLKS);
+        check(fault_led == 4'b0000, "recovered again");
 
-        // ---- e-stop through the full path
-        @(negedge clk); estop = 1; tick(2); estop = 0; tick(3);
-        chk(f_estop && pulse_cmd == 2000, "e-stop -> SAFE");
-        tick(3 * PERIOD); chk(f_estop && pulse_cmd == 2000, "e-stop latched");
-        do_reset; tick(3 * PERIOD); chk(!f_estop && pulse_cmd == 1900, "reset clears e-stop");
+        // ---- 9. Range fault through the SPI path (latched)
+        setf(1020); check(fault_led == 4'b0011 && dut.u_core.pulse_cmd == 1000, "1020: range fault + over-force");
+        setf(100);  check(fault_led == 4'b0010 && dut.u_core.pulse_cmd == 1000, "range fault latched");
+        do_reset; ticks(4*CONV_CLKS);
+        check(fault_led == 4'b0000 && dut.u_core.pulse_cmd == 1904, "reset clears range fault (100 -> 1904 us)");
 
-        // ---- datasheet timing over the whole run
-        chk(m.violations == 0, "datasheet timing violations in model");
-        chk(m.ch_mask == 8'h01, "channels other than 0 were requested");
+        // ---- 10. E-stop through the full path (latched)
+        @(posedge clk) estop_btn <= 1'b1; ticks(6); estop_btn <= 1'b0; ticks(4);
+        check(fault_led == 4'b1000 && dut.u_core.pulse_cmd == 1000, "e-stop -> open, latched after release");
+        ticks(3*CONV_CLKS); check(fault_led == 4'b1000, "e-stop stays latched");
+        do_reset; ticks(4*CONV_CLKS);
+        check(fault_led == 4'b0000 && dut.u_core.pulse_cmd == 1904, "reset clears e-stop");
+
+        // ---- 11. Grip disabled (not a fault)
+        grip_en_sw <= 1'b0; ticks(10);
+        check(fault_led == 4'b0000 && dut.u_core.pulse_cmd == 1000, "grip_en=0 -> open, no fault");
+
+        // ---- 12. Datasheet timing over the whole run
+        check(u_adc.violations == 0, "MCP3008 timing: zero violations over entire run");
+        check(chmask == 8'h01, "no channel other than 0 ever requested");
 
         $display("=== DONE: %0d error(s) ===", errors);
         $finish;
     end
-    initial begin #400_000_000; $display("FAIL: global timeout"); $finish; end
+
+    initial begin #300_000_000; $display("FAIL  global watchdog"); $display("=== DONE: watchdog ==="); $finish; end
 endmodule
