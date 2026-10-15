@@ -16,6 +16,7 @@
 | run_sim.sh | Runs all tests; exits nonzero on any failure |
 | rtl/reflex_top_spi.v | **Stage 2 top**: adc_spi_interface + unchanged reflex_top, continuous sampling of channel 0 |
 | tb/tb_reflex_top_spi.v | Stage 2 integration testbench (real MCP3008 model, real ADC timeout) |
+| tb/tb_governor_boundary.v | Safety-governor threshold boundaries: 899/900, 799/800, 1014/1015 |
 
 ## Run the simulation (no board needed)
 **EDA Playground (browser):** edaplayground.com → paste `tb_reflex_top.v` in the left
@@ -89,3 +90,37 @@ existing timeout fault (~57 samples per 1000 us window at 100 MHz / 1 MHz).
 - Latency CS rise -> `dbg_cmd_toggle` is 2 clocks in simulation only; real hardware adds I/O delays.
 - Not yet done: synthesis/timing, pin constraints (board model not confirmed), pull-up on MISO,
   hardware measurements.
+
+## Regression suite (`run_sim.sh`)
+`sh run_sim.sh` runs the default suite (about 30 s) and prints a per-test summary
+(reflex, boundary, adc, adc_27m, spi_top, bad_param); `sh run_sim.sh --extended` also runs
+`spi_top_20ms`: the integration test at 100 MHz with the real 20 ms servo frame (about 3 min).
+Exit status is nonzero if any test fails. Generated files (`sim_*`, `*.log`, `*.vcd`) are in `.gitignore`.
+
+### Running the governor boundary test (`tb/tb_governor_boundary.v`)
+It drives `reflex_top` directly (no SPI) and uses only the four Stage 1 RTL modules.
+- Local: `iverilog -g2005 -o sim_boundary rtl/reflex_top.v rtl/lut_engine.v rtl/safety_governor.v rtl/servo_pwm_generator.v tb/tb_governor_boundary.v && vvp -n sim_boundary`
+  (or just `sh run_sim.sh`, which runs it as `boundary`).
+- EDA Playground: testbench pane `tb_governor_boundary.v`; design pane the four core `rtl/` files
+  (`reflex_top.v`, `lut_engine.v`, `safety_governor.v`, `servo_pwm_generator.v`).
+- Expected: 16 `PASS` lines and a last line `=== DONE: 0 error(s) ===`.
+
+### Extended integration test (100 MHz clock, real 20 ms servo frame)
+The default `spi_top` test uses a 2.5 ms servo frame to stay fast. The extended run uses the real
+20 ms frame and takes about 3 minutes.
+- Local, via the script: `sh run_sim.sh --extended` (or `EXTENDED=1 sh run_sim.sh`). It runs the default
+  suite plus `spi_top_20ms`.
+- Local, one test only:
+  `iverilog -g2005 -Ptb_reflex_top_spi.FRAME_US=20000 -Ptb_reflex_top_spi.WATCHDOG_NS=900000000 -o sim_spi_20ms rtl/reflex_top.v rtl/lut_engine.v rtl/safety_governor.v rtl/servo_pwm_generator.v rtl/adc_spi_interface.v rtl/reflex_top_spi.v tb/mcp3008_model.v tb/tb_reflex_top_spi.v && vvp -n sim_spi_20ms`
+- EDA Playground (no `-P` parameter overrides): testbench pane `tb_reflex_top_spi.v`; design pane the four
+  core `rtl/` files + `adc_spi_interface.v` + `reflex_top_spi.v` + `mcp3008_model.v`. In the testbench pane,
+  edit the two defaults before running: `parameter FRAME_US = 2500;` -> `20000` and
+  `parameter WATCHDOG_NS = 300_000_000;` -> `900_000_000`. Do not copy the edited testbench back to the repo.
+  The run is long (about 3 minutes on a laptop), so it may exceed EDA Playground's time limit. That
+  procedure has not been tried on EDA Playground.
+
+Integration test (`tb_reflex_top_spi.v`) also covers a reset in the middle of a conversion and
+MISO stuck low. Stuck-low is a **known undetectable fault**: every frame looks valid and reads
+0 (no force), so no fault is raised; the test documents that behaviour, it is not a protection.
+A disconnected (open) MISO *is* detected, through the null bit and the ADC timeout.
+All results are simulation only; nothing here is validated on hardware.
