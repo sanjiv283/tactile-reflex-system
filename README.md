@@ -17,6 +17,11 @@
 | rtl/reflex_top_spi.v | **Stage 2 top**: adc_spi_interface + unchanged reflex_top, continuous sampling of channel 0 |
 | tb/tb_reflex_top_spi.v | Stage 2 integration testbench (real MCP3008 model, real ADC timeout) |
 | tb/tb_governor_boundary.v | Safety-governor threshold boundaries: 899/900, 799/800, 1014/1015 |
+| rtl/uart_rx.v | **Stage 3**: UART receiver, 8N1, configurable `CLK_HZ`/`BAUD` |
+| rtl/lut_upload_ctrl.v | **Stage 3**: packet parser / upload sequencer driving `lut_engine`'s write and swap ports |
+| rtl/reflex_top_uart.v | **Stage 3 top**: `uart_rx` + `lut_upload_ctrl` + unchanged `reflex_top_spi` |
+| tb/tb_uart_rx.v, tb/tb_lut_upload_ctrl.v, tb/tb_reflex_top_uart.v | Stage 3 self-checking tests |
+| tb/tb_uart_bad_param.v | Negative test: must **fail** to compile (baud too fast for the clock) |
 
 ## Run the simulation (no board needed)
 **EDA Playground (browser):** edaplayground.com → paste `tb_reflex_top.v` in the left
@@ -124,3 +129,95 @@ MISO stuck low. Stuck-low is a **known undetectable fault**: every frame looks v
 0 (no force), so no fault is raised; the test documents that behaviour, it is not a protection.
 A disconnected (open) MISO *is* detected, through the null bit and the ADC timeout.
 All results are simulation only; nothing here is validated on hardware.
+
+## Stage 3 – UART LUT upload (simulation only)
+Lets a host replace the 64-entry force->pulse table over a serial line:
+`uart_rx -> lut_upload_ctrl -> lut_engine` (existing `wr_en/wr_addr/wr_data/swap` ports) -> bank swap.
+`reflex_top`, `reflex_top_spi`, `lut_engine`, `safety_governor` and `servo_pwm_generator` are **unchanged**;
+`reflex_top_uart.v` is a new top that only connects to their existing ports. The safety governor still
+clamps every command to 1000..2000 us, so an uploaded table can never exceed the hard limits.
+
+### Assumptions (PLACEHOLDERS, set per board and host)
+`CLK_HZ = 100 MHz`, `BAUD = 115200` (8N1, LSB first), `UPLOAD_TIMEOUT_US = 10000`. No board, pin or baud
+rate has been chosen. `CLKS_PER_BIT = round(CLK_HZ/BAUD)` must be >= 8; `CLK_HZ` must be a whole number of MHz.
+At 100 MHz / 115200 that is 868 clocks per bit.
+
+### Upload protocol (host -> FPGA; there is no reply byte yet)
+Packet: `0xA5 | CMD | payload | CHK`, `CHK = CMD ^ every payload byte`. Fixed lengths, no length byte, no byte stuffing.
+
+| CMD | Name | Payload | Effect |
+|---|---|---|---|
+| 0x01 | BEGIN | none | Starts an upload; forgets all received entries and any earlier failure. |
+| 0x02 | WRITE | `ADDR` (0..63), `DATA_H`, `DATA_L` | Entry `ADDR` = `{DATA_H[3:0], DATA_L}` us, into the **inactive** bank. |
+| 0x03 | COMMIT | none | One bank swap, only if all 64 **distinct** addresses were written and nothing failed. |
+| 0x04 | ABORT | none | Cancels the upload. No swap. |
+
+Typical session: `BEGIN`, 64 x `WRITE` (any order, duplicates allowed), `COMMIT`.
+Example: BEGIN = `A5 01 01`; WRITE addr 5 = 1500 us (0x05DC) = `A5 02 05 05 DC 02^05^05^DC` = `A5 02 05 05 DC DE`.
+
+**Validity rules.** `ADDR < 64`; `DATA_H[7:4] = 0`; `1000 <= value <= 2000` (mirrors the governor limits).
+A WRITE outside an active, not-failed upload is refused. COMMIT counts distinct addresses (a 64-bit set), not
+WRITE commands: 64 writes to one address, or 64 writes covering 63 addresses, do not commit. A partial table
+is never swapped in because the inactive bank holds the OLD table, so missing entries would come back as stale values.
+Any NAK while an upload is active marks it **failed**: WRITE and COMMIT are refused (ERR_FAILED) until a new BEGIN.
+BEGIN and ABORT always work. COMMIT on success also closes the upload, so a later WRITE cannot touch the bank
+that just became inactive without a new BEGIN. The live (active) bank is only ever changed by the swap.
+
+**Error codes** (`upload_err`, last NAK, cleared by BEGIN/reset): 1 CHK, 2 CMD, 3 NOT_ACTIVE, 4 FAILED, 5 ADDR,
+6 DATA (upper nibble), 7 RANGE, 8 INCOMPLETE, 9 TIMEOUT, 10 UART (framing error).
+
+**Framing and recovery.**
+- Waiting for a packet, every byte except `0xA5` is ignored (leading garbage is skipped). An idle gap between packets
+  is fine and does not cancel an upload.
+- `0xA5` is an ordinary data value inside a packet (e.g. `DATA_L = 0xA5`, or a checksum of 0xA5), so it cannot be used
+  to resynchronise inside a packet. Instead: after an error where packet boundaries can no longer be trusted
+  (bad checksum, unknown CMD, UART framing error) the controller enters QUIET: it ignores all bytes, with no ACK/NAK,
+  until the line has been idle for `TIMEOUT_US`, then looks for `0xA5` again.
+  **The host must therefore pause >= `UPLOAD_TIMEOUT_US` before its next packet after such an error; a packet sent
+  sooner is swallowed.** Without a reply channel the host cannot see the NAK, so the safe habit is: send
+  COMMIT, and if the table did not change, wait the timeout and restart from BEGIN.
+- Gap > `TIMEOUT_US` inside a packet: packet dropped, NAK ERR_TIMEOUT, upload failed, parser back at SOF
+  (no QUIET: the line is already idle). Recovery: send a fresh BEGIN.
+- Errors on a complete, checksum-valid packet (bad address/data, wrong state, incomplete COMMIT) return straight to SOF.
+- Reset clears the parser and the upload (active/failed/received set); the live table is kept. An interrupted upload needs a new BEGIN.
+
+**Checksum limits.** XOR catches any single corrupted byte and odd bit flips per bit position, but not compensating
+errors (two bytes flipping the same bit, swapped bytes). It is a noise check, not authentication; anyone who can
+reach the serial pin can upload a table (still clamped to 1000..2000 us by the governor).
+
+### Module interfaces
+`uart_rx #(CLK_HZ, BAUD)`: `clk, rst, rx` -> `data[7:0], valid` (1-clock), `frame_err` (1-clock, stop bit low;
+waits for the line to go high again so a break gives one error), `busy`. Mid-bit sampling, 2-flop synchronizer,
+start-bit glitch rejection, back-to-back frames.
+`lut_upload_ctrl #(CLK_HZ, TIMEOUT_US, PULSE_MIN, PULSE_MAX)`: in `rx_data, rx_valid, rx_frame_err`; out `lut_wr_en,
+lut_wr_addr[5:0], lut_wr_data[11:0], lut_swap` (all registered, 1-clock pulses; never a write and a swap in the same clock),
+`ack, nak, commit_done` (pulses), `err_code[3:0], upload_active, upload_failed, entries[6:0]` (distinct addresses).
+`reflex_top_uart`: adds `uart_rxd` and the `upload_*` status outputs to the Stage 2 ports.
+Keep `PULSE_MIN/PULSE_MAX` equal to the governor's `PULSE_MIN_US/PULSE_MAX_US`.
+
+### Tests (all in `sh run_sim.sh`)
+| Test | Covers |
+|---|---|
+| `uart_rx` (+ `uart_rx_27m`, `uart_rx_1m`) | frames 00 FF 55 AA A5 ..., back-to-back, +-3 % baud error, framing error, break, glitch, reset mid-frame; 100 MHz/115200, 27 MHz/115200, 100 MHz/1 Mbaud |
+| `lut_ctrl` | `lut_upload_ctrl` + the real `lut_engine`, live table read back after every scenario: full upload, partial (63), duplicates, bad address/data/range (incl. 999/2001 and 1000/2000 boundaries), no BEGIN, ABORT, checksum/CMD errors and QUIET, garbage and 0xA5 payloads, timeout, idle gap, UART framing error, reset mid-upload/packet |
+| `uart_top` | serial bytes -> unchanged reflex path with the MCP3008 model: servo output unchanged after partial, 64-but-uncommitted, aborted, timed-out and invalid uploads; changes only after a valid COMMIT; governor still opens on over-force; table survives reset |
+| `uart_bad_param` | baud too fast for the clock must not compile |
+
+Run one: `iverilog -g2005 -o sim_x rtl/lut_engine.v rtl/lut_upload_ctrl.v tb/tb_lut_upload_ctrl.v && vvp -n sim_x`.
+EDA Playground (one testbench per run, not tried there): `tb_uart_rx.v` + `uart_rx.v`; `tb_lut_upload_ctrl.v` +
+`lut_engine.v` + `lut_upload_ctrl.v`; `tb_reflex_top_uart.v` + the four core `rtl/` files + `adc_spi_interface.v` +
+`reflex_top_spi.v` + `uart_rx.v` + `lut_upload_ctrl.v` + `reflex_top_uart.v` + `mcp3008_model.v` (about 27 ms simulated).
+The Stage 3 integration test uses 2 Mbaud and a 200 us timeout only to keep simulation short; the extended 20 ms
+run (`--extended`) still covers the Stage 2 path only.
+
+### Limitations and next steps
+- Simulation only: no synthesis, timing, FPGA or hardware validation; baud, clock and timeout are placeholders.
+- No `uart_tx`: the host gets no ACK/NAK (status is on `upload_*` pins only). Next: `uart_tx` + reply bytes.
+- Monotonic-table and "never tighten the grip as force rises" rules exist only in `python/lut_gen.py`, not in hardware;
+  hardware enforces only 1000..2000 us (plus the governor clamp).
+- Pull-up/pin settings for `uart_rxd` are not defined (board not confirmed); an idle-low or floating line would
+  likely appear as framing errors (not tested on hardware).
+- By design the swap is a single-clock bank toggle and writes only touch the inactive bank, so a reset in the middle of an
+  upload leaves the live table intact (tested for reset mid-upload and mid-packet; a power loss exactly at COMMIT is not
+  analysed or tested). A partially written inactive bank is simply discarded.
+- `python/lut_send.py` (host-side packet builder) is intentionally not included yet.
