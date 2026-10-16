@@ -327,6 +327,10 @@ combinational e-stop term from `trip`) was first missed; that led to the added "
 | `fault_latency` | fault applied at many offsets inside a servo frame (e-stop, over-force, grip disable), widths of the following pulses measured in clocks |
 | `adc_50m`, `adc_16m`, `uart_rx_50m`, `uart_rx_min`, `uart_tx_50m`, `uart_tx_min` | supported configurations never simulated before: 50 MHz; the ADC at exactly CLK = 16 x SCLK (HALF = 8); both UARTs at the minimum 8 clocks per bit |
 | `resp_bad_param`, `ctrl_bad_param`, `lint_rtl` | DEPTH = 1 and PULSE_MIN > PULSE_MAX must not elaborate; every RTL file compiles with `iverilog -Wall` and no warning |
+| `gov_bad_*` (14) | `safety_governor` compile-only negative tests, one parameter changed per case, each rejected through its own named guard: `clk_low`/`clk_frac` (500 kHz, 1.5 MHz), `timeout` (0), `lim_order` (MIN > MAX; SAFE is then also out of range, so two guards fire), `lim_width` (MAX 4096), `pmin_neg` (MIN -1), `safe_low`/`safe_high` (500, 2001), `fmax_high`/`fmax_zero` (1024, 0), `fresume` (901 > 900), `fres_neg` (-1), `fhi_high`/`fhi_zero` (1024, 0) |
+| `servo_bad_*` (3), `top_bad_frame` | `servo_pwm_generator`: `clk_low`/`clk_frac` (500 kHz, 1.5 MHz) and `frame` (FRAME_US = 2000); `top_bad_frame` reaches the same FRAME_US guard through `reflex_top` |
+| `gov_ok_*` (3), `servo_ok_min`, `top_ok_frame` | compile-only acceptance with `-Wall` and no output: governor at the low and high ends of every range (incl. SAFE = MIN = MAX, RESUME = MAX, RESUME = 0, FAULT_HI = 1023) and with FAULT_HI < FORCE_MAX; servo at 1 MHz / FRAME_US = 2001; `top_ok_frame` is the valid twin of `top_bad_frame` (FRAME_US = 2001) |
+| (runner) | a negative test passes only if iverilog fails and its output consists solely of "Unknown module type" errors for the expected guard name(s): a syntax error, missing file, extra missing module or wrong guard fails it |
 
 ### Behaviour now pinned down by tests (characterised, not changed)
 - **Servo output after reset.** `servo_pwm_generator` clears its latched width in reset, so the first pulse after a reset
@@ -362,9 +366,21 @@ combinational e-stop term from `trip`) was first missed; that led to the added "
   complete-frame side (a reset during any phase of a response frame truncates it and nothing is replayed) is asserted in `resp_robust`.
 
 ### Open questions and limits
-- `safety_governor`, `reflex_top`, `servo_pwm_generator` and `lut_engine` still have no parameter guards: `FORCE_RESUME` above
-  `FORCE_MAX`, or `FRAME_US` below the 2000 us maximum pulse, elaborate without error (checked). Left alone: Stage 1 RTL is
-  protected and these checks were deferred earlier. Candidates for the next RTL change, with tests.
+- **Parameter guards (Stage 6B.1).** `servo_pwm_generator` and `safety_governor` reject invalid `CLK_HZ`, `FRAME_US` and governor
+  limit/threshold settings at elaboration (the tests are listed in the table above). Reasoning in the RTL comments: `CLK_HZ`
+  must be a whole number of MHz (integer microsecond tick); the pulse limits must fit the 12-bit command and `SAFE_PULSE_US`
+  must lie inside them (it bypasses the clamp); `FORCE_MAX` and `ADC_FAULT_HI` must be 1..1023 (10-bit ADC); `FORCE_RESUME`
+  must not exceed `FORCE_MAX` (the set term wins, so a higher resume level would be ignored). Accepted on purpose:
+  `FORCE_RESUME == FORCE_MAX` (no hysteresis), `FORCE_RESUME == 0` (over-force never clears until reset) and
+  `ADC_FAULT_HI <= FORCE_MAX` (the range fault latches first). The tops pass only `CLK_HZ` and `FRAME_US` through, so those are
+  the only guards a top-level user can hit; the governor thresholds are reachable only by instantiating `safety_governor`
+  directly. `lut_engine` has no numeric parameters, so no guard. Every guard name has a negative test; not every sub-condition
+  does (for example `CLK_HZ = 0` and `FRAME_US` below 2000 other than 2000 itself are covered only by the same condition).
+- **Servo frame vs governor pulse maximum (not checkable locally).** The `FRAME_US > 2000` guard is an integration assumption
+  based on the current `safety_governor` default `PULSE_MAX_US = 2000`, not a limit derived from the servo's 12-bit pulse input
+  (up to 4095). A standalone combination with a governor `PULSE_MAX_US` above 2000 needs a correspondingly longer `FRAME_US`;
+  the local guards do not validate relationships between parameters of different modules. The tops do not expose
+  `PULSE_MAX_US`, so this cannot occur through them today.
 - `uart_tx.tx` has no power-up value (a possible glitch before the first reset clock on hardware); revisit at board bring-up.
 - Whether the one-empty-frame delay after reset is acceptable for the real actuator is a hardware question.
 - `tb_reflex_top_spi` (SPI integration) is hard-wired to 100 MHz; 50 MHz is covered at unit level only (ADC, UARTs, servo).

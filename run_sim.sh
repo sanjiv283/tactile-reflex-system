@@ -86,18 +86,26 @@ run uart_tx_50m   -Ptb_uart_tx.CLK_HZ=50000000 rtl/uart_tx.v rtl/uart_rx.v tb/ua
 run uart_tx_min   -Ptb_uart_tx.CLK_HZ=8000000 -Ptb_uart_tx.BAUD=1000000 rtl/uart_tx.v rtl/uart_rx.v tb/uart_monitor.v tb/tb_uart_tx.v
 
 # Negative tests: must FAIL to compile, and only through the parameter check.
-neg() {  # name, expected module name in the error, files...
+# "expected" is one module name, or NAME+OTHER when an invalid setting necessarily trips a second guard too.
+# The compiler output must consist solely of "Unknown module type" errors for those names (plus Icarus's own
+# summary lines): any other line (a syntax error, a missing file, a warning, another module) fails the test, and
+# the first name must be among the errors. iverilog's exit status is tested directly, not through a pipe.
+neg() {  # name, expected module name(s), files and -D options...
     name=$1; want=$2; shift 2
+    req=${want%%+*}; allowed=$(echo "$want" | tr '+' '|')
     echo "--- $name"
     if out=$(iverilog -g2005 -o "sim_$name" "$@" 2>&1); then
         echo "TEST FAIL: $name compiled (it must not)"; fail=1
         record "$name" FAIL "invalid parameters were accepted"
-    elif echo "$out" | grep -q "$want"; then
+        return
+    fi
+    extra=$(printf '%s\n' "$out" | grep -vE "^[^ ]+:[0-9]+: error: Unknown module type: ($allowed)\$|^[0-9]+ error\(s\) during elaboration\.\$|^\*\*\* These modules were missing:\$|^ +($allowed) referenced [0-9]+ times\.\$|^\*\*\*\$")
+    if [ -z "$extra" ] && printf '%s\n' "$out" | grep -qE ": error: Unknown module type: $req\$"; then
         echo "PASS  $name rejected by the parameter check"
         record "$name" PASS "rejected at compile time by the parameter check"
     else
-        echo "$out"; echo "TEST FAIL: $name failed to compile for a different reason"; fail=1
-        record "$name" FAIL "compile failed, but not through the parameter check"
+        echo "$out"; echo "TEST FAIL: $name failed to compile for a different reason (or with extra diagnostics)"; fail=1
+        record "$name" FAIL "compile failed, but not only through the expected parameter check"
     fi
 }
 neg bad_param      ADC_SPI_INTERFACE_invalid_CLK_HZ_or_SCLK_HZ rtl/adc_spi_interface.v tb/tb_adc_bad_param.v
@@ -105,6 +113,48 @@ neg uart_bad_param UART_RX_invalid_CLK_HZ_or_BAUD              rtl/uart_rx.v tb/
 neg uart_tx_bad_param UART_TX_invalid_CLK_HZ_or_BAUD           rtl/uart_tx.v tb/tb_uart_tx_bad_param.v
 neg resp_bad_param UPLOAD_RESP_TX_invalid_DEPTH                rtl/upload_resp_tx.v tb/tb_resp_bad_param.v
 neg ctrl_bad_param LUT_UPLOAD_CTRL_invalid_parameters          rtl/lut_upload_ctrl.v tb/tb_ctrl_bad_param.v
+
+# Stage 6B.1: parameter guards in safety_governor and servo_pwm_generator (one parameter changed per case).
+# pos(): the boundary configuration must elaborate cleanly with -Wall (compile only; no simulation needed).
+pos() {  # name, files...
+    name=$1; shift
+    echo "--- $name"
+    if out=$(iverilog -g2005 -Wall -o "sim_$name" "$@" 2>&1) && [ -z "$out" ]; then
+        echo "PASS  $name accepted"
+        record "$name" PASS "valid boundary configuration elaborates"
+    else
+        echo "$out"; echo "TEST FAIL: $name rejected or warned"; fail=1
+        record "$name" FAIL "valid boundary configuration was rejected"
+    fi
+}
+GOV_BP="rtl/safety_governor.v tb/tb_governor_bad_param.v"
+SERVO_BP="rtl/servo_pwm_generator.v tb/tb_servo_bad_param.v"
+neg gov_bad_clk_low     SAFETY_GOVERNOR_invalid_CLK_HZ          -DBAD_CLK_LOW $GOV_BP
+neg gov_bad_clk_frac    SAFETY_GOVERNOR_invalid_CLK_HZ          -DBAD_CLK_FRAC $GOV_BP
+neg gov_bad_timeout     SAFETY_GOVERNOR_invalid_ADC_TIMEOUT_US  -DBAD_TIMEOUT $GOV_BP
+# an inverted range necessarily leaves SAFE outside it as well, so both guards fire
+neg gov_bad_lim_order   SAFETY_GOVERNOR_invalid_PULSE_LIMITS+SAFETY_GOVERNOR_invalid_SAFE_PULSE_US -DBAD_LIMITS_ORDER $GOV_BP
+neg gov_bad_lim_width   SAFETY_GOVERNOR_invalid_PULSE_LIMITS    -DBAD_LIMITS_WIDTH $GOV_BP
+neg gov_bad_pmin_neg    SAFETY_GOVERNOR_invalid_PULSE_LIMITS    -DBAD_PMIN_NEG $GOV_BP
+neg gov_bad_safe_low    SAFETY_GOVERNOR_invalid_SAFE_PULSE_US   -DBAD_SAFE_LOW $GOV_BP
+neg gov_bad_safe_high   SAFETY_GOVERNOR_invalid_SAFE_PULSE_US   -DBAD_SAFE_HIGH $GOV_BP
+neg gov_bad_fmax_high   SAFETY_GOVERNOR_invalid_FORCE_MAX       -DBAD_FMAX_HIGH $GOV_BP
+neg gov_bad_fmax_zero   SAFETY_GOVERNOR_invalid_FORCE_MAX       -DBAD_FMAX_ZERO $GOV_BP
+neg gov_bad_fresume     SAFETY_GOVERNOR_invalid_FORCE_RESUME    -DBAD_FRES $GOV_BP
+neg gov_bad_fres_neg    SAFETY_GOVERNOR_invalid_FORCE_RESUME    -DBAD_FRES_NEG $GOV_BP
+neg gov_bad_fhi_high    SAFETY_GOVERNOR_invalid_ADC_FAULT_HI    -DBAD_FHI_HIGH $GOV_BP
+neg gov_bad_fhi_zero    SAFETY_GOVERNOR_invalid_ADC_FAULT_HI    -DBAD_FHI_ZERO $GOV_BP
+neg servo_bad_clk_low   SERVO_PWM_GENERATOR_invalid_CLK_HZ      -DBAD_CLK_LOW $SERVO_BP
+neg servo_bad_clk_frac  SERVO_PWM_GENERATOR_invalid_CLK_HZ      -DBAD_CLK_FRAC $SERVO_BP
+neg servo_bad_frame     SERVO_PWM_GENERATOR_invalid_FRAME_US    -DBAD_FRAME $SERVO_BP
+# the guard is inherited by the top level (reflex_top passes FRAME_US/CLK_HZ straight through)
+neg top_bad_frame       SERVO_PWM_GENERATOR_invalid_FRAME_US    -DBAD_TOP_FRAME rtl/reflex_top.v rtl/lut_engine.v rtl/safety_governor.v rtl/servo_pwm_generator.v tb/tb_servo_bad_param.v
+pos gov_ok_low          -DOK_LOW $GOV_BP
+pos gov_ok_high         -DOK_HIGH $GOV_BP
+pos gov_ok_fhi_lt_fmax  -DOK_FHI_BELOW_FMAX $GOV_BP
+pos servo_ok_min        -DOK_MIN $SERVO_BP
+# valid twin of top_bad_frame: same instantiation and files, FRAME_US = 2001
+pos top_ok_frame        -DOK_TOP_FRAME rtl/reflex_top.v rtl/lut_engine.v rtl/safety_governor.v rtl/servo_pwm_generator.v tb/tb_servo_bad_param.v
 
 # Lint: every RTL file must compile with all of iverilog's warnings on and print nothing.
 echo "--- lint_rtl"
