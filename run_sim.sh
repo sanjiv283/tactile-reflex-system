@@ -127,6 +127,11 @@ open(sys.argv[4], "w").write("".join("%d\n" % v for v in lut))' "$2" "$3" "$4" "
 lutload() {
     run "lutload_$1" "-Ptb_lut_gen_load.FILE=\"$2\"" "-Ptb_lut_gen_load.EXPECT=\"$3\"" "-Ptb_lut_gen_load.NEXP=$4" rtl/lut_engine.v tb/tb_lut_gen_load.v
 }
+# lutuart NAME HEXFILE DECFILE: the same generated file through the real top level reflex_top_uart (tb_lut_uart_top_load)
+UARTLUT="$RTL_CORE rtl/adc_spi_interface.v rtl/reflex_top_spi.v $UART_RTL tb/mcp3008_model.v tb/tb_lut_uart_top_load.v"
+lutuart() {
+    run "lutuart_$1" "-Ptb_lut_uart_top_load.FILE=\"$2\"" "-Ptb_lut_uart_top_load.EXPECT=\"$3\"" $UARTLUT
+}
 # lutgen_reject NAME MESSAGE ARGS...: the generator must refuse (nonzero exit, MESSAGE from validate(), no file written)
 lutgen_reject() {
     name=$1; msg=$2; shift 2
@@ -153,9 +158,9 @@ else
     # shallow slope: 64 distinct values with step 3 and no clamping, so any ordering/offset error shows up
     if lutgen default 2000 16 2000 2000 1000; then lutload default "$LUT_TMP/default.hex" "$LUT_TMP/default.dec" 64
     else echo "TEST FAIL: could not generate fixture default"; fail=1; record lutload_default FAIL "fixture generation failed"; fi
-    if lutgen clamped 1900 20 1800 1800 1000; then lutload clamped "$LUT_TMP/clamped.hex" "$LUT_TMP/clamped.dec" 64
+    if lutgen clamped 1900 20 1800 1800 1000; then lutload clamped "$LUT_TMP/clamped.hex" "$LUT_TMP/clamped.dec" 64; lutuart clamped "$LUT_TMP/clamped.hex" "$LUT_TMP/clamped.dec"
     else echo "TEST FAIL: could not generate fixture clamped"; fail=1; record lutload_clamped FAIL "fixture generation failed"; fi
-    if lutgen mid 1500 3 2000 1500 1311; then lutload mid "$LUT_TMP/mid.hex" "$LUT_TMP/mid.dec" 64
+    if lutgen mid 1500 3 2000 1500 1311; then lutload mid "$LUT_TMP/mid.hex" "$LUT_TMP/mid.dec" 64; lutuart mid "$LUT_TMP/mid.hex" "$LUT_TMP/mid.dec"
     else echo "TEST FAIL: could not generate fixture mid"; fail=1; record lutload_mid FAIL "fixture generation failed"; fi
     # Characterisation of what the RTL does with a bad file: it does NOT reject it. $readmemh leaves the words the file
     # does not provide unknown (x); the test checks that state, not the simulator's warning text.

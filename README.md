@@ -376,6 +376,7 @@ directory that is removed at the end (and on interrupt); Python runs with `-B`, 
 | `lutload_default`, `lutload_clamped`, `lutload_mid` | the real `lut_gen.py` command line writes a hex file; `rtl/lut_engine.v` loads it through `INIT_FILE` (`$readmemh`, into both banks); `tb_lut_gen_load` looks up every one of the 64 entries (ADC codes 16i, 16i+7 and 16i+15 each) in bank 0 and, after one swap, in bank 1, plus the ADC 0 / ADC 1023 end entries, and compares with the values `lut_gen.make_lut()` produces as a decimal file (different code path and representation). Fixtures: default (2000..1000 us), both limits clamped (1800..1000 us), and a shallow slope (1500..1311 us, 64 distinct values, so an ordering or offset error cannot hide) |
 | `lutload_short`, `lutload_missing` | **characterisation, not a requirement**: a file with only 10 words, or a file that does not exist, is NOT rejected by the RTL; the entries it does not provide read as unknown (`x`) in both banks (checked with `===`, not by the simulator's warning text) |
 | `initsafe_range`, `initsafe_short`, `initsafe_missing` | Stage 6B.3, whole `reflex_top` with `LUT_INIT_FILE`: out-of-range words are clamped (asserted); unprovided entries -> `x` reaches governor output and `servo_out`, and e-stop / over-force / reset replace it with SAFE (SIM CHARACTERISATION, four-state only); an entry present in the file works again after reset |
+| `lutuart_mid`, `lutuart_clamped` | Stage 6C.1: generated full tables through the real `reflex_top_uart` (`tb_lut_uart_top_load`): 64 + 64 bank entries compared by hierarchical reference, twice; 57 ADC-path comparisons through SPI, LUT and governor; idle UART stays idle |
 | `lutgen_rej_range`, `lutgen_rej_slope` | the generator refuses an out-of-range table and a grip-tightening table: nonzero exit, `validate()`'s message, no file written |
 
 Limits: the RTL has no check that an init file is complete or in range, so an incomplete file leaves `x` entries (the
@@ -383,8 +384,12 @@ governor's clamp is then the only protection; this is not tested with `x` inputs
 tables. The built-in default table (2000 - 16*i, so entry 63 is 992) differs from `lut_gen.py`'s default in that one entry
 (1000, clamped); the governor clamps 992 to 1000, so the servo output is the same. The built-in default itself is still checked
 by `lut_engine`. `LUT_INIT_FILE` reaches the tops by plain parameter wiring. The generated-file loading test above drives
-`lut_engine` directly; the Stage 6B.3 test below loads out-of-range, short and missing files through `reflex_top` only (not through
-`reflex_top_spi` or `reflex_top_uart`, and not the generated full tables). Found by this stage: `lut_gen.py` crashed for any explicit `--max`
+`lut_engine` directly. Stage 6C.1 (`lutuart_mid`, `lutuart_clamped`) loads the same generator-written full tables through the real
+`reflex_top_uart` hierarchy: both banks are read by hierarchical reference (simulation only, no RTL debug port) and all 64 entries of each
+bank must equal the Python values (exactly 64 comparisons per bank, before and after operation; `x` counts as a mismatch), and the real
+ADC -> SPI -> LUT -> governor path is checked for entries 0..56 (57 comparisons; entries 57..63 are in the governor's over-force region).
+Only the active bank is checked functionally; nothing is sent over the UART in that test. The Stage 6B.3 test below loads
+out-of-range, short and missing files through `reflex_top` only. Found by 6B.2: `lut_gen.py` crashed for any explicit `--max`
 (including the example in its own docstring) because argparse floats reached the `:03x` formatting; `make_lut` now rounds
 `p_max`, and the self-test checks integer entries for float arguments.
 
@@ -399,8 +404,16 @@ separate matter from the runtime upload/commit path, which has its own checksum,
   it becomes the command, and the servo generator only ever sees the clamped value. This is plain synthesisable logic, so it holds
   independently of the simulator. Tested through the whole top with a file containing such words (`initsafe_range`): the
   governor output equals the clamped value for entries 0..56 and stays within 1000..2000 us at those 57 sample points (one per
-  entry, taken 250 clocks after the code changes), and the servo pulse is exactly 1000 and 2000 us for the two extreme words. This is a
-  sampled check, not an every-clock monitor; the cycle-by-cycle clamp checks are in `gov_prio` and `safety_up`.
+  entry, taken 250 clocks after the code changes), and the servo pulse is exactly 1000 and 2000 us for the two extreme words. The sampled
+  checks above are now backed by an **every-clock servo monitor** (Stage 6C.1, in the same testbench): `servo_out` is sampled at every
+  falling clock edge (after all rising-edge updates, so no race) and must be known 0/1 with every completed pulse 1000..2000 us in
+  normal operation (phase 1), exactly 1000 us (SAFE) once an e-stop/over-force fault has been held for 2 frames (phase 3), never
+  high for more than 2000 clocks, and low on every clock after an internal reset clock (a pulse cut short by reset is not counted).
+  Phase 3 starts 2 frames after the fault because the generator only latches its command at a frame boundary (so the old command may
+  legitimately still be on the pin for up to 2 frames; see the fault-latency section). `x` is allowed only in the labelled
+  characterisation phase for short/missing files. The monitor counts its clocks and pulses per phase and the test fails if a phase
+  was not monitored (about 34000 clocks in the range test; about 11000 clocks in each of the x-allowed and SAFE phases, with 4 SAFE
+  pulses, in the short/missing tests). It does not say what a real FPGA holds at power-up or on its pins.
 - *Words the file does not provide (short file, missing file)*: **four-state simulation only** - the entries stay `x`, `x` passes
   through the clamp's `?:` (condition unknown), becomes the governor output, and `servo_out` itself goes `x` once the generator
   latches it at a frame boundary. Nothing in the RTL notices or rejects this. Faults and reset are not affected: e-stop, an
