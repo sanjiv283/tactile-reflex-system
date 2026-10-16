@@ -365,6 +365,65 @@ combinational e-stop term from `trip`) was first missed; that led to the added "
   not assertions, and "response queued" in that test means the event was pushed, not that a frame reached the host. The
   complete-frame side (a reset during any phase of a response frame truncates it and nothing is replayed) is asserted in `resp_robust`.
 
+### Python LUT generator and generated-file loading (Stage 6B.2)
+`sh run_sim.sh` (and `--extended`, which includes it) now also runs the Python side; set `PYTHON=...` to pick the interpreter
+(default `python3`, else `python`; none found = a failing row, not a skip). All generated files live in one `mktemp -d`
+directory that is removed at the end (and on interrupt); Python runs with `-B`, so no `__pycache__` appears.
+
+| Test | What it checks |
+|---|---|
+| `lut_gen_selftest` | `python3 python/lut_gen.py --test` must exit 0 **and** print its success line |
+| `lutload_default`, `lutload_clamped`, `lutload_mid` | the real `lut_gen.py` command line writes a hex file; `rtl/lut_engine.v` loads it through `INIT_FILE` (`$readmemh`, into both banks); `tb_lut_gen_load` looks up every one of the 64 entries (ADC codes 16i, 16i+7 and 16i+15 each) in bank 0 and, after one swap, in bank 1, plus the ADC 0 / ADC 1023 end entries, and compares with the values `lut_gen.make_lut()` produces as a decimal file (different code path and representation). Fixtures: default (2000..1000 us), both limits clamped (1800..1000 us), and a shallow slope (1500..1311 us, 64 distinct values, so an ordering or offset error cannot hide) |
+| `lutload_short`, `lutload_missing` | **characterisation, not a requirement**: a file with only 10 words, or a file that does not exist, is NOT rejected by the RTL; the entries it does not provide read as unknown (`x`) in both banks (checked with `===`, not by the simulator's warning text) |
+| `initsafe_range`, `initsafe_short`, `initsafe_missing` | Stage 6B.3, whole `reflex_top` with `LUT_INIT_FILE`: out-of-range words are clamped (asserted); unprovided entries -> `x` reaches governor output and `servo_out`, and e-stop / over-force / reset replace it with SAFE (SIM CHARACTERISATION, four-state only); an entry present in the file works again after reset |
+| `lutgen_rej_range`, `lutgen_rej_slope` | the generator refuses an out-of-range table and a grip-tightening table: nonzero exit, `validate()`'s message, no file written |
+
+Limits: the RTL has no check that an init file is complete or in range, so an incomplete file leaves `x` entries (the
+governor's clamp is then the only protection; this is not tested with `x` inputs). Only the generator's own `validate()` guards
+tables. The built-in default table (2000 - 16*i, so entry 63 is 992) differs from `lut_gen.py`'s default in that one entry
+(1000, clamped); the governor clamps 992 to 1000, so the servo output is the same. The built-in default itself is still checked
+by `lut_engine`. `LUT_INIT_FILE` reaches the tops by plain parameter wiring. The generated-file loading test above drives
+`lut_engine` directly; the Stage 6B.3 test below loads out-of-range, short and missing files through `reflex_top` only (not through
+`reflex_top_spi` or `reflex_top_uart`, and not the generated full tables). Found by this stage: `lut_gen.py` crashed for any explicit `--max`
+(including the example in its own docstring) because argparse floats reached the `:03x` formatting; `make_lut` now rounds
+`p_max`, and the self-test checks integer entries for float arguments.
+
+### LUT initialisation safety (Stage 6B.3) - audit result: no RTL change
+**What the RTL does.** `lut_engine` fills both banks once, in an `initial` block: `$readmemh(INIT_FILE)` into each bank, or the
+built-in 2000 - 16*i table when `INIT_FILE` is empty. Reset does not touch the memory or `active_bank` (only `lut_valid` and
+`lut_pulse_us` are cleared); only an upload + COMMIT changes the contents afterwards. Initialisation-file validity is therefore a
+separate matter from the runtime upload/commit path, which has its own checksum, 64-distinct-address and range checks.
+
+**What a bad table can and cannot do.**
+- *Out-of-range words (000, fff, 999, 2001, ...)*: the governor clamps every LUT word to PULSE_MIN..PULSE_MAX (1000..2000) before
+  it becomes the command, and the servo generator only ever sees the clamped value. This is plain synthesisable logic, so it holds
+  independently of the simulator. Tested through the whole top with a file containing such words (`initsafe_range`): the
+  governor output equals the clamped value for entries 0..56 and stays within 1000..2000 us at those 57 sample points (one per
+  entry, taken 250 clocks after the code changes), and the servo pulse is exactly 1000 and 2000 us for the two extreme words. This is a
+  sampled check, not an every-clock monitor; the cycle-by-cycle clamp checks are in `gov_prio` and `safety_up`.
+- *Words the file does not provide (short file, missing file)*: **four-state simulation only** - the entries stay `x`, `x` passes
+  through the clamp's `?:` (condition unknown), becomes the governor output, and `servo_out` itself goes `x` once the generator
+  latches it at a frame boundary. Nothing in the RTL notices or rejects this. Faults and reset are not affected: e-stop, an
+  over-force/range/timeout fault or a reset each replace the command with SAFE (1000 us) even while an unknown entry is being
+  sampled, and an over-force sample that lands on an unprovided entry never latches the `x` (`initsafe_short`, `initsafe_missing`;
+  these checks are labelled SIM CHARACTERISATION in the testbench).
+- *Real hardware has no `x`.* What an unprovided memory word holds in an FPGA (0, or whatever the tool fills) is tool-dependent and
+  **not verified here**; if it is 0 the clamp turns it into 1000 us, which is inside the limits but is not a meaningful table value.
+  Whether a missing file is an error or only a warning in a synthesis flow is likewise unverified (no Quartus run).
+
+**Why no initialisation-valid flag was added.** A reliable one would have to prove that all 64 words were read and are in range.
+`$readmemh` gives no success indication in Verilog-2005; testing for `x` needs `===`, which synthesis cannot implement (it would
+silently become `==` and never fire), so such a flag would protect only the simulation and could be mistaken for a hardware
+guarantee. A synthesisable alternative (a 64-bit "written" mask, as the upload controller already keeps for uploads) would need a
+new write path for the initial contents or a broader redesign, and the clamp already bounds the output. Not implemented; decide
+separately if a hardware-visible "table verified" state is wanted (options: generate the init file only with `lut_gen.py` and check
+its checksum on the host; or have the host upload and COMMIT the table after every power-up, which gets the existing checks).
+
+**Guarantees, stated plainly.** (1) Output pulse is always within 1000..2000 us or SAFE, for any 12-bit table word (simulated,
+and plain logic). (2) The built-in table is used when no file is given (`lut_engine`, `reflex`). (3) A bad file is not detected;
+generate files only with `python/lut_gen.py` (it validates) and treat a build/simulation warning from `$readmemh` as an error.
+Not guaranteed: that an incomplete table gives a meaningful servo command, or what hardware holds in unprovided words.
+
 ### Open questions and limits
 - **Parameter guards (Stage 6B.1).** `servo_pwm_generator` and `safety_governor` reject invalid `CLK_HZ`, `FRAME_US` and governor
   limit/threshold settings at elaboration (the tests are listed in the table above). Reasoning in the RTL comments: `CLK_HZ`

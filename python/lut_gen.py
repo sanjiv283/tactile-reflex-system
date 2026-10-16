@@ -14,7 +14,7 @@ PULSE_MIN, PULSE_MAX = 1000, 2000   # must match safety_governor parameters
 
 
 def make_lut(start, slope, p_max):
-    return [max(PULSE_MIN, min(p_max, round(start - slope * i))) for i in range(N)]
+    return [max(PULSE_MIN, min(round(p_max), round(start - slope * i))) for i in range(N)]
 
 
 def validate(lut):
@@ -36,6 +36,10 @@ def test():
     lut = make_lut(2000, 16, 2000)
     assert lut[0] == 2000 and lut[20] == 1680 and lut[63] == 1000
     validate(lut)
+    # command-line values arrive as floats; entries must still be ints (write_hex formats them with :03x)
+    flut = make_lut(2000.0, 16.0, 2000.0)
+    assert flut == lut and all(type(v) is int for v in flut), "float arguments must give integer entries"
+    assert make_lut(1900.0, 20.0, 1800.0)[0] == 1800 and type(make_lut(1900.0, 20.0, 1800.0)[0]) is int
     for bad in ([2100] * N, [1500] * 10 + [1600] * 54, [1500] * 63):
         try:
             validate(bad)

@@ -85,6 +85,101 @@ run uart_rx_min   -Ptb_uart_rx.CLK_HZ=8000000 -Ptb_uart_rx.BAUD=1000000 rtl/uart
 run uart_tx_50m   -Ptb_uart_tx.CLK_HZ=50000000 rtl/uart_tx.v rtl/uart_rx.v tb/uart_monitor.v tb/tb_uart_tx.v
 run uart_tx_min   -Ptb_uart_tx.CLK_HZ=8000000 -Ptb_uart_tx.BAUD=1000000 rtl/uart_tx.v rtl/uart_rx.v tb/uart_monitor.v tb/tb_uart_tx.v
 
+# ---- Stage 6B.2: Python LUT generator, and loading of generated files into rtl/lut_engine.v (INIT_FILE / $readmemh)
+# Python is part of the regression: $PYTHON, else python3, else python. A missing interpreter is a FAILURE, not a skip.
+# Everything generated goes into one temporary directory that is removed afterwards (also on interrupt).
+PY=${PYTHON:-}
+if [ -z "$PY" ]; then
+    if command -v python3 >/dev/null 2>&1; then PY=python3
+    elif command -v python >/dev/null 2>&1; then PY=python; fi
+fi
+LUT_TMP=
+cleanup_lut() { if [ -n "$LUT_TMP" ] && [ -d "$LUT_TMP" ]; then rm -rf "$LUT_TMP"; fi; LUT_TMP=; return 0; }
+trap cleanup_lut EXIT
+trap 'exit 130' HUP INT TERM
+# python -B: never write __pycache__ into the repository.
+
+echo "--- lut_gen_selftest"
+if [ -z "$PY" ]; then
+    echo "TEST FAIL: no python3/python found"; fail=1; record lut_gen_selftest FAIL "no Python interpreter"
+elif py_out=$("$PY" -B python/lut_gen.py --test 2>&1) && printf '%s\n' "$py_out" | grep -q "lut_gen self-test passed"; then
+    echo "$py_out"; echo "PASS  python/lut_gen.py --test"
+    record lut_gen_selftest PASS "python/lut_gen.py --test"
+else
+    echo "$py_out"; echo "TEST FAIL: lut_gen_selftest"; fail=1
+    record lut_gen_selftest FAIL "python/lut_gen.py --test failed (or did not report success)"
+fi
+
+# lutgen NAME START SLOPE MAX FIRST LAST: the real command-line generator writes NAME.hex (what the RTL loads); the
+# expected values NAME.dec come from lut_gen.make_lut() in Python as decimal (a different representation and code path).
+# FIRST/LAST are the entries the fixture is meant to have (so a fixture can not silently stop hitting a limit).
+lutgen() {
+    "$PY" -B python/lut_gen.py --start "$2" --slope "$3" --max "$4" -o "$LUT_TMP/$1.hex" >/dev/null || return 1
+    "$PY" -B -c 'import sys
+sys.path.insert(0, "python")
+import lut_gen
+lut = lut_gen.make_lut(float(sys.argv[1]), float(sys.argv[2]), float(sys.argv[3]))
+lut_gen.validate(lut)
+assert lut[0] == int(sys.argv[5]) and lut[-1] == int(sys.argv[6]), "fixture does not have the intended end values"
+open(sys.argv[4], "w").write("".join("%d\n" % v for v in lut))' "$2" "$3" "$4" "$LUT_TMP/$1.dec" "$5" "$6"
+}
+# lutload NAME HEXFILE DECFILE NEXP: simulate tb_lut_gen_load against that file (-P string parameters need the quotes)
+lutload() {
+    run "lutload_$1" "-Ptb_lut_gen_load.FILE=\"$2\"" "-Ptb_lut_gen_load.EXPECT=\"$3\"" "-Ptb_lut_gen_load.NEXP=$4" rtl/lut_engine.v tb/tb_lut_gen_load.v
+}
+# lutgen_reject NAME MESSAGE ARGS...: the generator must refuse (nonzero exit, MESSAGE from validate(), no file written)
+lutgen_reject() {
+    name=$1; msg=$2; shift 2
+    echo "--- $name"
+    if [ -z "$PY" ] || [ -z "$LUT_TMP" ]; then
+        echo "TEST FAIL: $name (no Python or temporary directory)"; fail=1; record "$name" FAIL "no Python or no temporary directory"; return
+    fi
+    if out=$("$PY" -B python/lut_gen.py "$@" -o "$LUT_TMP/$name.hex" 2>&1); then
+        echo "TEST FAIL: $name accepted"; fail=1; record "$name" FAIL "invalid table was accepted"
+    elif [ -e "$LUT_TMP/$name.hex" ]; then
+        echo "TEST FAIL: $name wrote a file"; fail=1; record "$name" FAIL "generator wrote a file for an invalid table"
+    elif printf '%s\n' "$out" | grep -q "$msg"; then
+        echo "PASS  $name rejected: $msg"; record "$name" PASS "generator refused (nonzero exit, no file)"
+    else
+        echo "$out"; echo "TEST FAIL: $name failed for a different reason"; fail=1; record "$name" FAIL "generator failed, but not through validate()"
+    fi
+}
+
+if [ -z "$PY" ] || ! LUT_TMP=$(mktemp -d); then
+    echo "TEST FAIL: generated-LUT tests need Python and mktemp"; fail=1
+    record lutload_all FAIL "no Python interpreter or no temporary directory"
+else
+    # default parameters (2000 -> 1000 us, reaches both limits); both limits clamped (1800 .. 1000);
+    # shallow slope: 64 distinct values with step 3 and no clamping, so any ordering/offset error shows up
+    if lutgen default 2000 16 2000 2000 1000; then lutload default "$LUT_TMP/default.hex" "$LUT_TMP/default.dec" 64
+    else echo "TEST FAIL: could not generate fixture default"; fail=1; record lutload_default FAIL "fixture generation failed"; fi
+    if lutgen clamped 1900 20 1800 1800 1000; then lutload clamped "$LUT_TMP/clamped.hex" "$LUT_TMP/clamped.dec" 64
+    else echo "TEST FAIL: could not generate fixture clamped"; fail=1; record lutload_clamped FAIL "fixture generation failed"; fi
+    if lutgen mid 1500 3 2000 1500 1311; then lutload mid "$LUT_TMP/mid.hex" "$LUT_TMP/mid.dec" 64
+    else echo "TEST FAIL: could not generate fixture mid"; fail=1; record lutload_mid FAIL "fixture generation failed"; fi
+    # Characterisation of what the RTL does with a bad file: it does NOT reject it. $readmemh leaves the words the file
+    # does not provide unknown (x); the test checks that state, not the simulator's warning text.
+    if [ -f "$LUT_TMP/default.hex" ] && head -n 10 "$LUT_TMP/default.hex" > "$LUT_TMP/short.hex"; then
+        lutload short "$LUT_TMP/short.hex" "$LUT_TMP/default.dec" 10
+    else echo "TEST FAIL: could not build the short file"; fail=1; record lutload_short FAIL "fixture generation failed"; fi
+    if [ -f "$LUT_TMP/default.dec" ]; then lutload missing "$LUT_TMP/does_not_exist.hex" "$LUT_TMP/default.dec" 0
+    else echo "TEST FAIL: no expected file for the missing-file test"; fail=1; record lutload_missing FAIL "fixture generation failed"; fi
+    # Stage 6B.3: what a bad table can do to the servo command (whole reflex_top). MODE 0: out-of-range words are
+    # clamped by the governor (portable guarantee). MODE 1: unprovided entries are x in 4-state simulation only
+    # (characterisation; see README); a fault, e-stop or reset replaces the x with SAFE.
+    INITSAFE="rtl/reflex_top.v rtl/lut_engine.v rtl/safety_governor.v rtl/servo_pwm_generator.v tb/tb_lut_init_safety.v"
+    if { printf '%s\n' 000 fff 3e7 7d1 3e8 7d0; n=0; while [ $n -lt 58 ]; do echo 5dc; n=$((n+1)); done; } > "$LUT_TMP/range.hex" &&
+       { n=0; while [ $n -lt 10 ]; do echo 5dc; n=$((n+1)); done; } > "$LUT_TMP/short5dc.hex"; then
+        run initsafe_range   "-Ptb_lut_init_safety.FILE=\"$LUT_TMP/range.hex\"" -Ptb_lut_init_safety.MODE=0 $INITSAFE
+        run initsafe_short   "-Ptb_lut_init_safety.FILE=\"$LUT_TMP/short5dc.hex\"" -Ptb_lut_init_safety.MODE=1 -Ptb_lut_init_safety.NEXP=10 $INITSAFE
+        run initsafe_missing "-Ptb_lut_init_safety.FILE=\"$LUT_TMP/does_not_exist.hex\"" -Ptb_lut_init_safety.MODE=1 -Ptb_lut_init_safety.NEXP=0 $INITSAFE
+    else echo "TEST FAIL: could not write the init-safety fixtures"; fail=1; record initsafe_all FAIL "fixture generation failed"; fi
+    # The Python side does reject bad tables before any file exists.
+    lutgen_reject lutgen_rej_range "entries outside" --start 2100 --slope 0 --max 2100
+    lutgen_reject lutgen_rej_slope "must not tighten" --start 1000 --slope -16 --max 2000
+fi
+cleanup_lut
+
 # Negative tests: must FAIL to compile, and only through the parameter check.
 # "expected" is one module name, or NAME+OTHER when an invalid setting necessarily trips a second guard too.
 # The compiler output must consist solely of "Unknown module type" errors for those names (plus Icarus's own
