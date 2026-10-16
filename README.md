@@ -100,9 +100,10 @@ existing timeout fault (~57 samples per 1000 us window at 100 MHz / 1 MHz).
   hardware measurements.
 
 ## Regression suite (`run_sim.sh`)
-`sh run_sim.sh` runs the default suite (about 1 minute) and prints a per-test summary
-(reflex, boundary, adc, adc_27m, spi_top, bad_param); `sh run_sim.sh --extended` also runs
-`spi_top_20ms`: the integration test at 100 MHz with the real 20 ms servo frame (about 3 min).
+`sh run_sim.sh` runs the default suite (about 2 minutes) and prints a per-test summary
+(one line per test; the Stage 5 tests are listed below); `sh run_sim.sh --extended` also runs
+`spi_top_20ms` (the integration test at 100 MHz with the real 20 ms servo frame) and the slower repeats of the Stage 5
+tests (about 5-6 minutes in total).
 Exit status is nonzero if any test fails. Generated files (`sim_*`, `*.log`, `*.vcd`) are in `.gitignore`.
 
 ### Running the governor boundary test (`tb/tb_governor_boundary.v`)
@@ -221,8 +222,7 @@ run (`--extended`) still covers the Stage 2 path only.
 - Pull-up/pin settings for `uart_rxd` are not defined (board not confirmed); an idle-low or floating line would
   likely appear as framing errors (not tested on hardware).
 - By design the swap is a single-clock bank toggle and writes only touch the inactive bank, so a reset in the middle of an
-  upload leaves the live table intact (tested for reset mid-upload and mid-packet; a power loss exactly at COMMIT is not
-  analysed or tested). A partially written inactive bank is simply discarded.
+  upload leaves the live table intact (tested for reset mid-upload and mid-packet; reset exactly around COMMIT is characterised under Stage 5 below; a power loss is not analysed). A partially written inactive bank is simply discarded.
 - `python/lut_send.py` (host-side packet builder) is intentionally not included yet.
 
 ## Stage 4 – UART transmitter and host-visible responses (simulation only)
@@ -305,3 +305,68 @@ timeout only to keep simulation short; the extended 20 ms run (`--extended`) sti
 - XOR check limits as in Stage 3; the response checksum only protects the host from line noise.
 - `uart_txd` pin, idle level and any level shifting are undefined until a board is chosen. A host-side script that builds
   commands and parses replies (`python/lut_send.py`) is intentionally still not included.
+
+## Stage 5 – Robustness and safety verification (simulation only)
+Stage 5 added tests only. **No RTL was changed**: every test passed against the existing RTL, so no defect was found
+and nothing was fixed. What the tests do pin down are exact behaviours (listed below), several of which were previously
+only implied. Each new test was also run against deliberately broken copies of the RTL (24 mutations: governor, LUT engine,
+servo, controller, response FIFO, top level) and fails on each, in the check written for it. One mutation (dropping the
+combinational e-stop term from `trip`) was first missed; that led to the added "e-stop in the `lut_valid` clock" check.
+
+### New tests (all in `sh run_sim.sh`; "ext" = only with `--extended`)
+| Test | Checks |
+|---|---|
+| `gov_prio`, `gov_prio_cfg` | `safety_governor` driven directly, cycle-exact: clamp edges (PULSE_MIN-1 .. PULSE_MAX+1); thresholds follow the parameters (run with defaults and with FORCE_MAX 500 / RESUME 400 / FAULT_HI 600 / pulse 1200..1800 / SAFE 1500 / timeout 50); 1-clock e-stop pulse latches; e-stop held through reset re-latches; e-stop in the same clock as a sample, and in the same clock as `lut_valid` (only the combinational term in `trip` stops the value), never lets that sample's LUT value out; e-stop + range + over-force at once = `1011`, timeout adds `1111`, a low sample clears only over-force; exact ADC-timeout boundary; grip disable is not a fault, does not hide faults, and re-enabling waits for the next sample; a sample in the reset clock leaves no trace; `cmd_toggle` once per `lut_valid`; and every clock of the run: output inside the limits, SAFE whenever a fault has held 3 clocks |
+| `reflex_sweep` | `reflex_top` against a reference model: all 1024 ADC codes rising, all codes falling from a trip (whole 800..949 hold band), 2500 pseudo-random samples concentrated at the thresholds, and 400 samples on consecutive clocks (each command appears exactly 2 clocks later, in order) |
+| `servo_pwm` (+ ext `_50m`, `_27m`, `_100m`) | `servo_pwm_generator` directly, in clock counts: exact widths and exact frame period (real 20 ms frame at 1 MHz; 2.5 ms frame at 27/50/100 MHz), pulse latched once per frame (mid-pulse and mid-gap changes), width 0 = silent frame, reset mid-pulse |
+| `lut_engine` | `lut_engine` directly: all 1024 codes against both banks, lookup timing and hold, writes never disturb the live bank (read in the same clock), swap atomic under a lookup every clock (old up to and including the swap clock, new from the next), two swaps = back, reset keeps tables and active bank |
+| `ctrl_timing`, `ctrl_timing_2m` (+ ext `_50m`) | exact timeout and quiet-period boundaries of `lut_upload_ctrl` (see below), also that only CLK_HZ x TIMEOUT_US matters (TLIM 100, 50, 50) |
+| `commit_race` | reset asserted at each clock from 3 before to 8 after the COMMIT byte (controller + real `lut_engine` + `upload_resp_tx`) |
+| `resp_robust`, `_d3`, `_d8` (+ ext `_d2`, `_d5`) | `upload_resp_tx` at FIFO depths 2, 3, 4, 5, 8 (power-of-two and not): capacity DEPTH+1, order, lost flag, pointer wrap over many fills; reset at 102 different phases of a response frame |
+| `safety_up` | full Stage 4 top: e-stop, over-force and ADC-timeout faults each held while a complete table is uploaded and committed; failed uploads (63 entries, invalid entry, ABORT, timeout) |
+| `fault_latency` | fault applied at many offsets inside a servo frame (e-stop, over-force, grip disable), widths of the following pulses measured in clocks |
+| `adc_50m`, `adc_16m`, `uart_rx_50m`, `uart_rx_min`, `uart_tx_50m`, `uart_tx_min` | supported configurations never simulated before: 50 MHz; the ADC at exactly CLK = 16 x SCLK (HALF = 8); both UARTs at the minimum 8 clocks per bit |
+| `resp_bad_param`, `ctrl_bad_param`, `lint_rtl` | DEPTH = 1 and PULSE_MIN > PULSE_MAX must not elaborate; every RTL file compiles with `iverilog -Wall` and no warning |
+
+### Behaviour now pinned down by tests (characterised, not changed)
+- **Servo output after reset.** `servo_pwm_generator` clears its latched width in reset, so the first pulse after a reset
+  starts one full frame later (20 ms with the real frame) and the first frame is empty. Output is low during reset.
+- **Fault to servo pulse.** The command goes SAFE within a few clocks, but the PWM latches it once per frame. Measured
+  (`fault_latency`; the exact window sizes are INFO-printed, the test asserts only that a fault reaches the next pulse unless it falls in a small window before the frame boundary, that the second pulse after it is always SAFE and that widths are never corrupt): the pulse already running keeps its old width; the next pulse is SAFE unless the fault came in the last
+  5 clocks before the frame boundary (e-stop, grip disable) or the last 47 clocks (over-force, which arrives through an ADC
+  sample; the test samples every 50 clocks); the pulse after that is always SAFE. So the old command can still be on the
+  wire for the rest of the running pulse (up to 2 ms) and up to one frame, and in the worst case two frames, before a SAFE pulse starts.
+- **Governor.** The e-stop input acts combinationally in `trip`; a 1-clock pulse latches. The ADC timeout does not fire if
+  the next valid sample comes within `limit + 1` clocks of the previous one; `limit + 2` times out. Output never leaves
+  1000..2000 us and is SAFE once a fault has held 3 clocks.
+- **LUT engine.** `swap` flips the bank in one clock: the lookup in the swap clock still sees the old table, the next sees
+  the new one. A write issued in the same clock as a swap lands in the bank being swapped in. `swap` and writes are not
+  gated by reset (a swap pulse during reset still toggles the bank); reset keeps the tables and the active bank.
+- **Controller timing.** Inside a packet the longest allowed distance between two byte-valid clocks is `TLIM + 1`
+  (`TLIM = TIMEOUT_US x CLK_MHz`); `TLIM + 2` times out. In the quiet period (after CHK / CMD / UART errors) a byte at distance
+  `TLIM + 1` from the previous byte is swallowed, at `TLIM + 2` it starts a packet; every byte received during quiet restarts the
+  count. The Stage 3 text "a gap of TIMEOUT_US" means these exact values.
+- **Reset around COMMIT** (`commit_race`). The live table is always entirely the old or entirely the new one. With `d` = clocks
+  from the COMMIT's CHK byte valid clock to the start of a 2-clock reset (simulated, per-`d` results below):
+  `d <= 0` cancels the COMMIT (no swap, upload gone); `d = 1` lets the swap happen (swap is not gated by reset) but the COMMITTED
+  event is swallowed, so the table changed and the host gets no reply; from `d = 2` the event is queued in the response FIFO.
+  **Queued is not delivered:** the frame is 4 bytes (about 350 us at 115200 baud) and a reset at any point until its last stop bit
+  has been sent flushes the FIFO and cuts the frame off, although the swap has already happened. So the ambiguity window is not
+  only the `d = 1` case: it lasts from the COMMIT until the COMMITTED frame is completely transmitted. Whenever the host sees
+  no complete, valid COMMITTED frame around a reset, the outcome is unknown (old or new table); re-uploading the same table is safe.
+  What `commit_race` **asserts**: live table all-old or all-new; swap pulse <=> new table live; no COMMITTED event without a swap;
+  controller idle after a reset at or before the CHK byte; a COMMIT after the reset without BEGIN never swaps; the sweep covers
+  both "committed with response" and "cancelled". What it only **prints (INFO)**: the per-`d` swap / response-queued / table
+  split, and the counts of "swapped but response swallowed". The `d = 1` and `d = 2` outcomes above are therefore observations,
+  not assertions, and "response queued" in that test means the event was pushed, not that a frame reached the host. The
+  complete-frame side (a reset during any phase of a response frame truncates it and nothing is replayed) is asserted in `resp_robust`.
+
+### Open questions and limits
+- `safety_governor`, `reflex_top`, `servo_pwm_generator` and `lut_engine` still have no parameter guards: `FORCE_RESUME` above
+  `FORCE_MAX`, or `FRAME_US` below the 2000 us maximum pulse, elaborate without error (checked). Left alone: Stage 1 RTL is
+  protected and these checks were deferred earlier. Candidates for the next RTL change, with tests.
+- `uart_tx.tx` has no power-up value (a possible glitch before the first reset clock on hardware); revisit at board bring-up.
+- Whether the one-empty-frame delay after reset is acceptable for the real actuator is a hardware question.
+- `tb_reflex_top_spi` (SPI integration) is hard-wired to 100 MHz; 50 MHz is covered at unit level only (ADC, UARTs, servo).
+- No coverage tool, formal check or second simulator: only Icarus Verilog 12 and `-Wall`. No synthesis, timing analysis or
+  hardware validation of any kind.
