@@ -19,8 +19,11 @@
 | tb/tb_governor_boundary.v | Safety-governor threshold boundaries: 899/900, 799/800, 1014/1015 |
 | rtl/uart_rx.v | **Stage 3**: UART receiver, 8N1, configurable `CLK_HZ`/`BAUD` |
 | rtl/lut_upload_ctrl.v | **Stage 3**: packet parser / upload sequencer driving `lut_engine`'s write and swap ports |
-| rtl/reflex_top_uart.v | **Stage 3 top**: `uart_rx` + `lut_upload_ctrl` + unchanged `reflex_top_spi` |
+| rtl/reflex_top_uart.v | **Stage 3 top**: `uart_rx` + `lut_upload_ctrl` + unchanged `reflex_top_spi` (Stage 4 adds `uart_tx` + `upload_resp_tx`, additive ports only) |
+| rtl/uart_tx.v | **Stage 4**: UART transmitter, 8N1, same `CLK_HZ`/`BAUD` parameters as `uart_rx` |
+| rtl/upload_resp_tx.v | **Stage 4**: turns controller ACK/NAK events into 4-byte response frames, with a small FIFO |
 | tb/tb_uart_rx.v, tb/tb_lut_upload_ctrl.v, tb/tb_reflex_top_uart.v | Stage 3 self-checking tests |
+| tb/tb_uart_tx.v, tb/tb_upload_resp_tx.v, tb/tb_reflex_top_host.v, tb/uart_monitor.v, tb/tb_uart_tx_bad_param.v | Stage 4 tests (`uart_monitor.v` is a sim-only independent line decoder) |
 | tb/tb_uart_bad_param.v | Negative test: must **fail** to compile (baud too fast for the clock) |
 
 ## Run the simulation (no board needed)
@@ -97,7 +100,7 @@ existing timeout fault (~57 samples per 1000 us window at 100 MHz / 1 MHz).
   hardware measurements.
 
 ## Regression suite (`run_sim.sh`)
-`sh run_sim.sh` runs the default suite (about 30 s) and prints a per-test summary
+`sh run_sim.sh` runs the default suite (about 1 minute) and prints a per-test summary
 (reflex, boundary, adc, adc_27m, spi_top, bad_param); `sh run_sim.sh --extended` also runs
 `spi_top_20ms`: the integration test at 100 MHz with the real 20 ms servo frame (about 3 min).
 Exit status is nonzero if any test fails. Generated files (`sim_*`, `*.log`, `*.vcd`) are in `.gitignore`.
@@ -142,7 +145,7 @@ clamps every command to 1000..2000 us, so an uploaded table can never exceed the
 rate has been chosen. `CLKS_PER_BIT = round(CLK_HZ/BAUD)` must be >= 8; `CLK_HZ` must be a whole number of MHz.
 At 100 MHz / 115200 that is 868 clocks per bit.
 
-### Upload protocol (host -> FPGA; there is no reply byte yet)
+### Upload protocol (host -> FPGA; replies are added in Stage 4 below)
 Packet: `0xA5 | CMD | payload | CHK`, `CHK = CMD ^ every payload byte`. Fixed lengths, no length byte, no byte stuffing.
 
 | CMD | Name | Payload | Effect |
@@ -174,8 +177,8 @@ that just became inactive without a new BEGIN. The live (active) bank is only ev
   (bad checksum, unknown CMD, UART framing error) the controller enters QUIET: it ignores all bytes, with no ACK/NAK,
   until the line has been idle for `TIMEOUT_US`, then looks for `0xA5` again.
   **The host must therefore pause >= `UPLOAD_TIMEOUT_US` before its next packet after such an error; a packet sent
-  sooner is swallowed.** Without a reply channel the host cannot see the NAK, so the safe habit is: send
-  COMMIT, and if the table did not change, wait the timeout and restart from BEGIN.
+  sooner is swallowed.** With Stage 4 the host sees the NAK as a response frame; the packet is
+  still swallowed, so wait the timeout before the next one (and restart from BEGIN if the upload failed).
 - Gap > `TIMEOUT_US` inside a packet: packet dropped, NAK ERR_TIMEOUT, upload failed, parser back at SOF
   (no QUIET: the line is already idle). Recovery: send a fresh BEGIN.
 - Errors on a complete, checksum-valid packet (bad address/data, wrong state, incomplete COMMIT) return straight to SOF.
@@ -212,7 +215,7 @@ run (`--extended`) still covers the Stage 2 path only.
 
 ### Limitations and next steps
 - Simulation only: no synthesis, timing, FPGA or hardware validation; baud, clock and timeout are placeholders.
-- No `uart_tx`: the host gets no ACK/NAK (status is on `upload_*` pins only). Next: `uart_tx` + reply bytes.
+- (Stage 3 had no reply path; Stage 4 below adds it.)
 - Monotonic-table and "never tighten the grip as force rises" rules exist only in `python/lut_gen.py`, not in hardware;
   hardware enforces only 1000..2000 us (plus the governor clamp).
 - Pull-up/pin settings for `uart_rxd` are not defined (board not confirmed); an idle-low or floating line would
@@ -221,3 +224,84 @@ run (`--extended`) still covers the Stage 2 path only.
   upload leaves the live table intact (tested for reset mid-upload and mid-packet; a power loss exactly at COMMIT is not
   analysed or tested). A partially written inactive bank is simply discarded.
 - `python/lut_send.py` (host-side packet builder) is intentionally not included yet.
+
+## Stage 4 – UART transmitter and host-visible responses (simulation only)
+`uart_tx` (8N1, LSB first) and `upload_resp_tx` send a response frame to the host for every upload ACK or NAK.
+`lut_upload_ctrl`, `uart_rx` and all Stage 1/2 RTL are **unchanged**. `reflex_top_uart` gained only additive items:
+parameter `RESP_FIFO_DEPTH` (default 4) and outputs `uart_txd`, `tx_busy`, `resp_overflow`; its existing ports and
+behaviour are untouched and the unmodified Stage 3 testbench still passes against it. `CLK_HZ`/`BAUD` are the same
+PLACEHOLDERS as Stage 3 (100 MHz, 115200); no pin is assumed (`uart_txd` is a plain output port).
+
+### Response frame (FPGA -> host): `0x5A | STATUS | INFO | CHK`, `CHK = STATUS ^ INFO`
+| STATUS | Meaning | INFO |
+|---|---|---|
+| `0x06` | ACK: command accepted | distinct entries received so far (0..64) |
+| `0x07` | COMMITTED: COMMIT accepted and the bank swap happened | 64 |
+| `0x15` | NAK: command rejected | error code 1..10 (table in Stage 3: 1 CHK, 2 CMD, 3 NOT_ACTIVE, 4 FAILED, 5 ADDR, 6 DATA, 7 RANGE, 8 INCOMPLETE, 9 TIMEOUT, 10 UART) |
+
+STATUS bit 7 (`0x80`) = one or more earlier responses were dropped right before this one (see overflow).
+Examples: BEGIN accepted `5A 06 00 06`; 37th distinct entry written `5A 06 25 23`; COMMIT done `5A 07 40 47`;
+incomplete COMMIT `5A 15 08 1D`; same ACK after a loss `5A 86 25 A3`.
+`0x5A` appears **only** as the first byte: INFO <= 64, STATUS is `06/07/15` (+`0x80`) and `STATUS ^ INFO` is never
+`0x5A` (checked exhaustively in `tb_upload_resp_tx`). Responses are in command order. No command echo: the host matches
+by order, except codes 9 (TIMEOUT) and 10 (UART framing error), which are asynchronous and have no command of their own
+(the timeout NAK arrives about `UPLOAD_TIMEOUT_US` after the last byte of an incomplete packet).
+Bytes the controller ignores (garbage before `0xA5`, packets swallowed in the quiet period) get **no** response.
+
+**Truthfulness.** A response is generated from the controller's own ack/nak event, in the same clock as its effect:
+`COMMITTED` only when `lut_swap` fired (the integration test checks the swap pulse, the commit pulse, the bank LED and the
+servo command), `ACK` for WRITE only when exactly one write reached `lut_engine`, and every `NAK` only when no write and
+no swap occurred. `ACK` for ABORT/BEGIN means no write or swap.
+
+**Host parser (the algorithm the tests use).** Hunt for `0x5A`. Read STATUS, INFO, CHK. If a `0x5A` appears where one of
+those three bytes should be, drop the partial frame and treat that `0x5A` as a new start (this is how a frame cut off by a
+reset is skipped). If CHK is wrong or STATUS/INFO is impossible (STATUS not in `06/07/15` after masking bit 7; INFO > 64
+for ACK/COMMITTED, outside 1..10 for NAK), drop the frame and hunt again.
+
+**Queueing, overflow, reset.** Events go into a FIFO (`RESP_FIFO_DEPTH`, default 4) and frames are sent in order with no
+gap between them while any are waiting. A response is stored in exactly one place at a time: one of the `RESP_FIFO_DEPTH`
+FIFO slots while it waits, or the separate current-frame register from the clock it is popped (it leaves the FIFO in that
+same clock, so it is never counted twice) until its last (fourth) byte has been handed to `uart_tx`; that last byte then
+finishes in the transmitter's own shift register and uses no response storage. A new response is accepted only if a FIFO
+slot is free (the current-frame register is not part of that test), so storage capacity is `RESP_FIFO_DEPTH` waiting + 1
+being sent = DEPTH+1: a burst faster than a frame can start (e.g. one event per clock into an idle, empty queue) is
+accepted up to DEPTH+1 responses (5 for the default 4) and the rest are dropped. Under sustained traffic more are accepted
+in total because frames keep leaving, and at one instant up to DEPTH+2 responses can still have bytes to send (the previous
+frame's last byte is still on the wire). A 4-byte reply to a 3-byte command (BEGIN/COMMIT/ABORT) is slower than the commands, so a long burst of such
+commands can fill the FIFO (WRITE, 6 bytes in, cannot). A response arriving while the FIFO is full is **dropped** (never
+reordered); the next response that is queued carries the lost flag (one flag per gap, however many were dropped) and the
+sticky `resp_overflow` output stays set until reset. Reset empties the FIFO, forgets a pending lost flag and drives `uart_txd`
+high at once; a frame in flight is cut off (a truncated frame on the wire, then idle). Nothing is replayed after reset.
+
+### Module interfaces
+`uart_tx #(CLK_HZ, BAUD)`: `clk, rst, tx_data[7:0], tx_valid` -> `tx_ready, tx, busy`. A byte is accepted on a clock with
+`tx_valid && tx_ready`; `tx_ready` is also high on the last clock of the stop bit, so holding `tx_valid` with the next byte
+gives a continuous stream (10 bit times per byte). Every bit is exactly `round(CLK_HZ/BAUD)` clocks (>= 8 or elaboration fails);
+the real baud differs from `BAUD` only by that rounding (0.006 % at 100 MHz/115200, 0.16 % at 27 MHz/115200).
+`upload_resp_tx #(DEPTH)`: events `ev_ack, ev_nak, ev_commit, ev_err[3:0], ev_entries[6:0]` (wired to the controller's
+`ack, nak, commit_done, err_code, entries`), byte interface to `uart_tx`, outputs `overflow`, `busy`. `DEPTH >= 2`.
+
+### Tests (all in `sh run_sim.sh`)
+| Test | Covers |
+|---|---|
+| `uart_tx` (+ `_27m`, `_1m`) | exact bit/frame timing (0x00 low for 9 bit times, start bit 1 bit time, start edges 10 bit times apart back to back), 12 awkward bytes decoded by an independent monitor and by `uart_rx`, ready/busy handshake, reset mid-byte and mid-stream; 100 MHz/115200, 27 MHz/115200, 100 MHz/1 Mbaud |
+| `resp_tx` | every frame type and error code with exact bytes, all ACK counts 0..64, exhaustive `0x5A` uniqueness, back-to-back ordering and contiguity, overflow (accepts DEPTH+1 from an empty queue: DEPTH waiting + 1 being sent), repeated overflow, partial drain, lost-flag attachment and clearing, reset mid-frame and around events, parser resync on truncated/garbled synthetic streams |
+| `host_top` | host model against the real `reflex_top_uart` + MCP3008 model: BEGIN/WRITE/duplicate/COMMIT/ABORT, incomplete COMMIT, every rejection (bad checksum, unknown CMD, bad address/data/range, no BEGIN), asynchronous timeout NAK, quiet period, pipelined 64-write upload (66 responses in order), burst of 40 BEGIN (drops flagged), reset during a response, each response compared with write/swap pulses, bank LED and servo command |
+| `uart_tx_bad_param` | baud too fast for the clock must not compile |
+
+EDA Playground (one testbench per run, not tried there): `tb_uart_tx.v` + `uart_tx.v` + `uart_rx.v` + `uart_monitor.v`;
+`tb_upload_resp_tx.v` + `uart_tx.v` + `upload_resp_tx.v` + `uart_monitor.v`; `tb_reflex_top_host.v` + the four core `rtl/` files
++ `adc_spi_interface.v` + `reflex_top_spi.v` + `uart_rx.v` + `uart_tx.v` + `upload_resp_tx.v` + `lut_upload_ctrl.v` +
+`reflex_top_uart.v` + `mcp3008_model.v` + `uart_monitor.v` (about 12 ms simulated). The host test uses 2 Mbaud and a 200 us
+timeout only to keep simulation short; the extended 20 ms run (`--extended`) still covers the Stage 2 path only.
+
+### Limitations and next steps
+- Simulation only: no synthesis, timing, FPGA or hardware validation; clock, baud, timeout and FIFO depth are placeholders.
+- No command echo, and no reply for ignored bytes: a host that pipelines commands can only align replies by order. Prefer
+  stop-and-wait around BEGIN/COMMIT, and treat a missing reply as "ignored or swallowed".
+- A burst of short commands (BEGIN/COMMIT/ABORT) can outrun the reply line; dropped replies are flagged on the next reply,
+  but if nothing follows, the host never learns of the drop except through `resp_overflow` or a missing reply.
+- A reply cut off by a reset reaches the host as a truncated frame (handled by the parser rule above); nothing is retransmitted.
+- XOR check limits as in Stage 3; the response checksum only protects the host from line noise.
+- `uart_txd` pin, idle level and any level shifting are undefined until a board is chosen. A host-side script that builds
+  commands and parses replies (`python/lut_send.py`) is intentionally still not included.

@@ -4,11 +4,14 @@
 // reflex_top_spi, reflex_top and lut_engine are used unchanged; the only coupling is their
 // existing lut_wr_en / lut_wr_addr / lut_wr_data / lut_swap ports.
 // CLK_HZ, BAUD and UPLOAD_TIMEOUT_US are PLACEHOLDERS: set them for the real board and host.
-// No board pins are assumed here; uart_rxd is a plain input port.
+// No board pins are assumed here; uart_rxd and uart_txd are plain ports.
+// Stage 4 (additive): uart_tx + upload_resp_tx send a 4-byte response frame to the host for every
+// upload ack/nak (format in upload_resp_tx.v). Existing ports and behaviour are unchanged.
 module reflex_top_uart #(
     parameter CLK_HZ            = 100_000_000,
     parameter BAUD              = 115200,
     parameter UPLOAD_TIMEOUT_US = 10_000,
+    parameter RESP_FIFO_DEPTH   = 4,         // Stage 4: FIFO slots; 1 more response is held while its frame is sent
     parameter SCLK_HZ           = 1_000_000,
     parameter FRAME_US          = 20_000,
     parameter LUT_INIT_FILE     = ""
@@ -36,7 +39,11 @@ module reflex_top_uart #(
     output wire        upload_active,
     output wire        upload_failed,
     output wire [6:0]  upload_entries,
-    output wire        upload_commit
+    output wire        upload_commit,
+    // Stage 4: serial responses to the host
+    output wire        uart_txd,
+    output wire        tx_busy,
+    output wire        resp_overflow
 );
     // same 2-flop reset synchronizer as reflex_top / reflex_top_spi
     reg [1:0] rst_s = 2'b11;
@@ -60,6 +67,23 @@ module reflex_top_uart #(
         .lut_wr_en(wr_en), .lut_wr_addr(wr_addr), .lut_wr_data(wr_data), .lut_swap(swap),
         .ack(upload_ack), .nak(upload_nak), .err_code(upload_err), .commit_done(upload_commit),
         .upload_active(upload_active), .upload_failed(upload_failed), .entries(upload_entries)
+    );
+
+    // Stage 4: responses to the host
+    wire [7:0] tx_data;
+    wire       tx_valid, tx_ready, resp_busy;
+
+    upload_resp_tx #(.DEPTH(RESP_FIFO_DEPTH)) u_resp (
+        .clk(clk), .rst(rst),
+        .ev_ack(upload_ack), .ev_nak(upload_nak), .ev_commit(upload_commit),
+        .ev_err(upload_err), .ev_entries(upload_entries),
+        .tx_data(tx_data), .tx_valid(tx_valid), .tx_ready(tx_ready),
+        .overflow(resp_overflow), .busy(resp_busy)
+    );
+
+    uart_tx #(.CLK_HZ(CLK_HZ), .BAUD(BAUD)) u_tx (
+        .clk(clk), .rst(rst), .tx_data(tx_data), .tx_valid(tx_valid),
+        .tx_ready(tx_ready), .tx(uart_txd), .busy(tx_busy)
     );
 
     reflex_top_spi #(.CLK_HZ(CLK_HZ), .SCLK_HZ(SCLK_HZ), .FRAME_US(FRAME_US),
