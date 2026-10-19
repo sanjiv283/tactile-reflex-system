@@ -41,6 +41,9 @@ module tb_safety_vs_upload;
         .uart_txd(uart_txd), .tx_busy(tx_busy), .resp_overflow(resp_overflow));
     mcp3008_model u_adc (.cs_n(cs_n), .sclk(sclk), .din(mosi), .dout(adc_dout));
 
+    // declared before task check, which prints it (Icarus 13 reported 'Unable to bind' when these followed the task)
+    wire [11:0] pulse_cmd = dut.u_spi.u_core.pulse_cmd;
+
     integer errors = 0;
     task check(input cond, input [8*96-1:0] name);
         begin
@@ -49,7 +52,6 @@ module tb_safety_vs_upload;
         end
     endtask
     task ticks(input integer n); repeat (n) @(posedge clk); endtask
-    wire [11:0] pulse_cmd = dut.u_spi.u_core.pulse_cmd;
 
     // ---------------- always-on invariant monitor
     integer streak = 0, viol_range = 0, viol_safe = 0, cmd_changes = 0, seen1500 = 0;

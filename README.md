@@ -437,6 +437,17 @@ and plain logic). (2) The built-in table is used when no file is given (`lut_eng
 generate files only with `python/lut_gen.py` (it validates) and treat a build/simulation warning from `$readmemh` as an error.
 Not guaranteed: that an incomplete table gives a meaningful servo command, or what hardware holds in unprovided words.
 
+### DE2-115 board wrapper (Stage 7, simulation only)
+`quartus/` holds the DE2-115 integration (see `quartus/README_DE2_115.md` for the folder layout, wiring, Quartus steps and safety
+notes): the board wrapper `TactileReflexive.v` (top-level entity; wraps `reflex_top_spi` at 50 MHz, buttons inverted to the
+design's active-high controls), a minimal `TactileReflexive.sdc` (20 ns clock; false paths only from `KEY`/`SW` and the MISO pin,
+none on outputs), a TCL script that adds the sources to an open Quartus project, and `check_sdc_ports.py`. New regression rows:
+`de2_wrapper` (board-level simulation with the MCP3008 model: reset, start-up, normal operation, over-force with hysteresis, range
+fault, e-stop, ADC disconnected, grip disable, every servo pulse 1000..2000 us; fast 2.5 ms frame), `de2_wrapper_20ms` (extended,
+real 20 ms frame), `sdc_ports` (SDC vs real ports) and `lint_wrapper` (`-Wall`, no warnings). **Not done:** Quartus compilation,
+timing analysis, verified pin assignments, hardware. Known sensor-fault gap found by `de2_wrapper` (labelled CHARACTERISATION): a
+MISO line stuck low reads as a valid code 0 and commands the largest pulse with no fault.
+
 ### Open questions and limits
 - **Parameter guards (Stage 6B.1).** `servo_pwm_generator` and `safety_governor` reject invalid `CLK_HZ`, `FRAME_US` and governor
   limit/threshold settings at elaboration (the tests are listed in the table above). Reasoning in the RTL comments: `CLK_HZ`

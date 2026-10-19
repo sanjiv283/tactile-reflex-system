@@ -29,6 +29,9 @@ module tb_ctrl_timing;
         .ack(ack), .nak(nak), .err_code(err), .commit_done(commit_done),
         .upload_active(active), .upload_failed(failed), .entries(entries));
 
+    // declared before task check, which prints them (Icarus 13 reported 'Unable to bind' when these followed the task)
+    integer n_ack = 0, n_nak = 0, n_wr = 0, n_swap = 0;
+    reg [3:0] last_err = 0;
     integer errors = 0;
     task check(input cond, input [8*96-1:0] name);
         begin
@@ -36,8 +39,6 @@ module tb_ctrl_timing;
             else begin $display("FAIL  %0s  (acks=%0d naks=%0d last_err=%0d active=%b failed=%b)", name, n_ack, n_nak, last_err, active, failed); errors = errors + 1; end
         end
     endtask
-    integer n_ack = 0, n_nak = 0, n_wr = 0, n_swap = 0;
-    reg [3:0] last_err = 0;
     always @(posedge clk) begin
         if (ack) n_ack = n_ack + 1;
         if (nak) begin n_nak = n_nak + 1; last_err = err; end

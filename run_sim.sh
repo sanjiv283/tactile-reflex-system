@@ -85,6 +85,12 @@ run uart_rx_min   -Ptb_uart_rx.CLK_HZ=8000000 -Ptb_uart_rx.BAUD=1000000 rtl/uart
 run uart_tx_50m   -Ptb_uart_tx.CLK_HZ=50000000 rtl/uart_tx.v rtl/uart_rx.v tb/uart_monitor.v tb/tb_uart_tx.v
 run uart_tx_min   -Ptb_uart_tx.CLK_HZ=8000000 -Ptb_uart_tx.BAUD=1000000 rtl/uart_tx.v rtl/uart_rx.v tb/uart_monitor.v tb/tb_uart_tx.v
 
+# ---- DE2-115 board wrapper (quartus/TactileReflexive.v) with the MCP3008 model: normal, ADC missing/invalid, reset, e-stop,
+#      over-force, range fault, grip disable, safe servo output. Fast run here (2.5 ms frame), real 20 ms frame in --extended.
+DE2_SYNTH="quartus/TactileReflexive.v rtl/reflex_top_spi.v rtl/reflex_top.v rtl/adc_spi_interface.v rtl/lut_engine.v rtl/safety_governor.v rtl/servo_pwm_generator.v"
+DE2="$DE2_SYNTH tb/mcp3008_model.v tb/tb_de2_wrapper.v"
+run de2_wrapper $DE2
+
 # ---- Stage 6B.2: Python LUT generator, and loading of generated files into rtl/lut_engine.v (INIT_FILE / $readmemh)
 # Python is part of the regression: $PYTHON, else python3, else python. A missing interpreter is a FAILURE, not a skip.
 # Everything generated goes into one temporary directory that is removed afterwards (also on interrupt).
@@ -108,6 +114,19 @@ elif py_out=$("$PY" -B python/lut_gen.py --test 2>&1) && printf '%s\n' "$py_out"
 else
     echo "$py_out"; echo "TEST FAIL: lut_gen_selftest"; fail=1
     record lut_gen_selftest FAIL "python/lut_gen.py --test failed (or did not report success)"
+fi
+
+# SDC vs the wrapper's real ports (no Quartus needed): every get_ports pattern must match a port, create_clock on an input,
+# and no false path may target outputs.
+echo "--- sdc_ports"
+if [ -z "$PY" ]; then
+    echo "TEST FAIL: no python3/python found"; fail=1; record sdc_ports FAIL "no Python interpreter"
+elif sdc_out=$("$PY" -B quartus/check_sdc_ports.py 2>&1); then
+    echo "$sdc_out"; echo "PASS  quartus/TactileReflexive.sdc matches the wrapper ports"
+    record sdc_ports PASS "SDC patterns match wrapper ports, no output false paths"
+else
+    echo "$sdc_out"; echo "TEST FAIL: sdc_ports"; fail=1
+    record sdc_ports FAIL "SDC does not match the wrapper ports (or has an output false path)"
 fi
 
 # lutgen NAME START SLOPE MAX FIRST LAST: the real command-line generator writes NAME.hex (what the RTL loads); the
@@ -266,6 +285,16 @@ else
     record lint_rtl FAIL "iverilog -Wall reported warnings/errors"
 fi
 
+# Same for the DE2-115 wrapper with the six RTL files it needs (the top module is named explicitly).
+echo "--- lint_wrapper"
+if lintw_out=$(iverilog -g2005 -Wall -s TactileReflexive -o sim_lint_wrapper $DE2_SYNTH 2>&1) && [ -z "$lintw_out" ]; then
+    echo "PASS  quartus/TactileReflexive.v + 6 RTL files compile with -Wall and no warnings"
+    record lint_wrapper PASS "no warnings with iverilog -Wall"
+else
+    echo "$lintw_out"; echo "TEST FAIL: lint_wrapper"; fail=1
+    record lint_wrapper FAIL "iverilog -Wall reported warnings/errors"
+fi
+
 # ---- extended tier (slow repeats at other clocks / depths, and the real 20 ms servo frame in the integration test)
 if [ $extended -eq 1 ]; then
     run spi_top_20ms     -Ptb_reflex_top_spi.FRAME_US=20000 -Ptb_reflex_top_spi.WATCHDOG_NS=900000000 $SPI
@@ -275,8 +304,9 @@ if [ $extended -eq 1 ]; then
     run resp_robust_d2   -Ptb_resp_robust.DEPTH_P=2 $RESP
     run resp_robust_d5   -Ptb_resp_robust.DEPTH_P=5 $RESP
     run ctrl_timing_50m  -Ptb_ctrl_timing.CLK_HZ_P=50000000 -Ptb_ctrl_timing.TIMEOUT_US_P=1 rtl/lut_upload_ctrl.v tb/tb_ctrl_timing.v
+    run de2_wrapper_20ms -Ptb_de2_wrapper.FRAME_US_TB=20000 $DE2
 else
-    for t in spi_top_20ms servo_pwm_50m servo_pwm_27m servo_pwm_100m resp_robust_d2 resp_robust_d5 ctrl_timing_50m; do
+    for t in spi_top_20ms servo_pwm_50m servo_pwm_27m servo_pwm_100m resp_robust_d2 resp_robust_d5 ctrl_timing_50m de2_wrapper_20ms; do
         record "$t" SKIPPED "optional: run 'sh run_sim.sh --extended'"
     done
 fi
