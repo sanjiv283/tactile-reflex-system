@@ -80,8 +80,10 @@ the end-to-end response.
 ## 6. Data flow from force sensor to actuator command
 
 1. The ADC samples the analog input (assumed ~6.0 µs after CS falls; see section 15).
-2. `adc_spi_interface` shifts in 17 bits; if the null bit is 0 it presents `data[9:0]` with a one-clock `data_valid` pulse; if the
-   null bit is 1 it pulses `frame_err` instead and `data` is not updated (`adc_spi_interface.v:96-104`).
+2. `adc_spi_interface` shifts in 17 bits and records MISO at SCLK rising edge 5 (`idle_hi`, `adc_spi_interface.v:105`). If the null bit is 0
+   **and** `idle_hi` is 1 it presents `data[9:0]` with a one-clock `data_valid` pulse; otherwise (null bit 1, or MISO not high at edge 5) it
+   pulses `frame_err` instead and `data` is not updated (`adc_spi_interface.v:108-116`). The edge-5 check is simulated only: it relies on the
+   MCP3008 output being high-impedance before the null bit and on a working MISO pull-up, **neither confirmed** against the datasheet or on hardware.
 3. `lut_engine` uses `adc_value[9:4]` as the table index (64 levels of 16 ADC codes each) and registers `lut_pulse_us` and `lut_valid` one clock later (`lut_engine.v:44,52-54`).
 4. `safety_governor` registers `pulse_us`: SAFE (1000 µs) if any fault is active or grip is disabled, else the LUT value clamped to 1000–2000 µs (`safety_governor.v:72-74,95-96`).
 5. `servo_pwm_generator` copies `pulse_us` into `pulse_latched` only at the end of each frame and drives `servo_out` high for that many microseconds (`servo_pwm_generator.v:46-52`).
@@ -92,7 +94,7 @@ the end-to-end response.
 |---|---|---|---|
 | `TactileReflexive` | `quartus/TactileReflexive.v` | DE2-115 wrapper: inverts active-low buttons, maps GPIO bits, LEDs; instantiates `reflex_top_spi` with `CLK_HZ=50e6`, `SCLK_HZ=1e6`, `FRAME_US=20000`; LUT write ports tied to 0 | lines 38-40 (controls), 46-48 (parameters), 60-63 (LUT ports off) |
 | `reflex_top_spi` | `rtl/reflex_top_spi.v` | Joins the SPI ADC to `reflex_top`; `start = ~busy`, channel 0; own reset synchroniser; guard requires ≥ 4 samples per ADC timeout | lines 48-50, 57, 65; timeout copy `ADC_TIMEOUT_US = 1000` at line 37 |
-| `adc_spi_interface` | `rtl/adc_spi_interface.v` | MCP3008 SPI master, mode 0, 17 rising edges, MISO 2-flop synchronised; `data_valid`/`frame_err` | HALF line 42; frame lines 82-109; reset into GAP lines 73-78 |
+| `adc_spi_interface` | `rtl/adc_spi_interface.v` | MCP3008 SPI master, mode 0, 17 rising edges, MISO 2-flop synchronised; `data_valid`/`frame_err` | HALF line 52; frame lines 93-121 (`idle_hi` capture line 105); reset into GAP lines 84-89 |
 | `reflex_top` | `rtl/reflex_top.v` | 2-flop synchronisers for reset/e-stop/grip; instantiates LUT, governor, PWM | lines 27-33 (synchronisers), 38 (LUT), 46-56 |
 | `lut_engine` | `rtl/lut_engine.v` | 2 × 64 × 12-bit banks; reads active bank, writes inactive bank, one-clock `swap`; default 2000 − 16·i | init 27-37; lookup 52-54 |
 | `safety_governor` | `rtl/safety_governor.v` | Clamp, over-force with hysteresis, range fault, ADC timeout, e-stop latch, grip override | parameters 10-17; logic 72-98 |
@@ -106,12 +108,12 @@ Confirmed from `adc_spi_interface.v`, `reflex_top_spi.v` and the wrapper:
 | Parameter | Value | Source |
 |---|---|---|
 | FPGA clock | 50 MHz, period 20 ns | `TactileReflexive.v:46` |
-| SPI clock | 1 MHz requested; `HALF = ceil(50e6 / (2·1e6)) = 25` clocks → SCLK period 50 clocks = 1.000 µs | `adc_spi_interface.v:42` |
+| SPI clock | 1 MHz requested; `HALF = ceil(50e6 / (2·1e6)) = 25` clocks → SCLK period 50 clocks = 1.000 µs | `adc_spi_interface.v:52` |
 | SPI mode | 0 (SCLK idles low, MISO sampled on the rising edge, MOSI changes on the falling edge) | file header, lines 3-5 |
-| Frame | CS low, 17 rising edges: start, SGL/DIFF, D2 D1 D0, (sample), null bit, B9…B0 | header lines 6-8; `rises == 17` at line 96 |
-| Null bit | must read 0, else `frame_err` and no sample | lines 99-104 |
+| Frame | CS low, 17 rising edges: start, SGL/DIFF, D2 D1 D0, (sample), null bit, B9…B0 | header lines 6-8; `rises == 17` at line 108 |
+| Null bit and edge-5 level | null bit must read 0 **and** MISO must be high at rising edge 5 (`idle_hi`), else `frame_err` and no sample | lines 105, 111-116 **[SIM]**; the real MCP3008's high-impedance-before-null-bit behaviour is **not confirmed** against the datasheet |
 | Conversion period | `35·HALF + 1 = 876` clocks = 17.52 µs (57.1 kS/s) | `reflex_top_spi.v:39`; measured 876 **[SIM]** |
-| SCLK limit guard | `SCLK_HZ` 10 kHz … 1.35 MHz and `HALF ≥ 8` | lines 49-53 |
+| SCLK limit guard | `SCLK_HZ` 10 kHz … 1.35 MHz and `HALF ≥ 8` | lines 59-63 |
 
 ## 9. LUT mapping and command generation
 
@@ -154,7 +156,7 @@ hysteresis. `trip` is the OR of all of them plus the live synchronised e-stop (`
 
 * `run_sim.sh` runs 30+ self-checking testbenches under `tb/` with Icarus Verilog and a per-test PASS/FAIL summary; exit status is nonzero on any failure (requires a clean `=== DONE: 0 error(s) ===`, at least one PASS line, no FAIL line and `vvp` exit 0).
 * Layers: unit (ADC, UARTs, LUT, governor, servo), integration (`reflex_top`, `reflex_top_spi`, `reflex_top_uart`), board wrapper (`tb_de2_wrapper.v` with the MCP3008 model, which also checks datasheet SPI timing), parameter negative/acceptance tests (compile-only), Python tests (`lut_gen.py --test`, `check_sdc_ports.py`), lint (`-Wall`).
-* Characterisation tests (labelled) document current behaviour that is not a requirement: reset around COMMIT, fault-latency windows, `x` entries from missing LUT files, stuck-low MISO.
+* Characterisation tests (labelled) document current behaviour that is not a requirement: reset around COMMIT, fault-latency windows, `x` entries from missing LUT files. (The stuck-low MISO characterisation was converted into a detection test once the rising-edge-5 check was added.)
 
 ## 14. Verified simulation results
 
@@ -162,11 +164,19 @@ Executed by the assistant in its cloud workspace on a **copy of the current work
 
 | Check | Command | Exit | PASS | FAIL | SKIPPED |
 |---|---|---|---|---|---|
-| Standard suite | `bash run_sim.sh` | 0 | 79 | 0 | 8 (optional extended tests) |
-| Extended suite | `bash run_sim.sh --extended` | 0 | 87 | 0 | 0 |
+| Standard suite | `bash run_sim.sh` | 0 | 83 | 0 | 10 (optional extended-tier rows) |
+| Extended suite | `bash run_sim.sh --extended` | 0 | 93 | 0 | 0 |
 | LUT generator self-test | `python3 -B python/lut_gen.py --test` | 0 | passed | — | — |
 | SDC vs wrapper ports | `python3 -B quartus/check_sdc_ports.py` | 0 | 4 patterns match 6 ports | — | — |
-| Checksums | `sha256sum -c CHECKSUMS.sha256` | 0 | 50 OK | 0 | — |
+| Checksums | `sha256sum -c CHECKSUMS.sha256` | 0 | 53 OK | 0 | — |
+
+Update after the MISO stuck-low change. The standard and extended suites were each run in the cloud workspace with Icarus Verilog 12.0 on the same uncommitted working tree on top of HEAD `6bc0cb9`, and are recorded separately:
+
+* **Standard:** `bash run_sim.sh` — exit 0, 155 s, 83 PASS, 0 FAIL, 10 SKIPPED across 93 summary rows. The 10 skipped rows are the optional extended-tier tests (`spi_top_20ms`, `servo_pwm_50m`, `servo_pwm_27m`, `servo_pwm_100m`, `resp_robust_d2`, `resp_robust_d5`, `ctrl_timing_50m`, `de2_wrapper_20ms`, `timeout_boundary_20ms`, `stuck_low_boundary_20ms`). The earlier pre-change record was 79 PASS, 0 FAIL, 8 SKIPPED.
+* **Extended:** `bash run_sim.sh --extended` — exit 0, 636 s, 93 PASS, 0 FAIL, 0 SKIPPED.
+* Both runs printed the same four `$readmemh ... Not enough words in the file` warnings (`rtl/lut_engine.v:30-31`) from the existing short-LUT-file negative tests; there were no compile errors and no `MODEL VIOLATION` lines. Checksums: 53 OK.
+
+These are simulation results only. They do not establish physical hardware safety, and they do not confirm the MCP3008 datasheet assumptions behind the stuck-low check (DOUT high-impedance before the null bit, pull-up speed), which remain unconfirmed.
 
 Tool versions: Icarus Verilog 12.0 (stable), Python 3.13, GNU bash. Expected console noise: the LUT-file negative tests print `$readmemh` WARNING/ERROR lines on purpose.
 Not run: Quartus (not installed), Verilator, Yosys. The user's own Icarus 13.0 run after the two testbench declaration-order fixes has **not** been reported back yet; the earlier local failures were testbench compile errors (`ctrl_timing`, `ctrl_timing_2m`, `safety_up`), classified as a **tool-version compatibility issue in the testbenches**, not a design defect.
@@ -184,7 +194,7 @@ Not run: Quartus (not installed), Verilator, Yosys. The user's own Icarus 13.0 r
 | FSR + divider settling | analog | not modelled | unknown | — | needs measurement |
 | Wait for the next ADC sample instant | SPI/ADC | 0 … 876 clocks | 0 … 17.52 µs | conversion period `35·HALF+1` (`reflex_top_spi.v:39`); **measured 876 [SIM]** | continuous conversions (`start = ~busy`) |
 | CS fall → analog sample instant | ADC | 12·HALF = 300 clocks | 6.00 µs | `tb/mcp3008_model.v:71-75` | **model assumption**; confirm against the MCP3008 datasheet |
-| Sample instant → `data_valid` | SPI | 850 − 300 = 550 clocks | 11.00 µs | CS fall → `data_valid` = 34·HALF = 850 clocks, **measured 850 [SIM]** (`adc_spi_interface.v:89-104`) | exact for the RTL |
+| Sample instant → `data_valid` | SPI | 850 − 300 = 550 clocks | 11.00 µs | CS fall → `data_valid` = 34·HALF = 850 clocks, **measured 850 [SIM]** (`adc_spi_interface.v:100-116`) | exact for the RTL |
 | `data_valid` → `lut_valid`, `lut_pulse_us` | clk | 1 clock | 20 ns | `lut_engine.v:52-54`; measured 1 **[SIM]** | exact |
 | `lut_valid` → `pulse_us` (governor) | clk | 1 clock | 20 ns | `safety_governor.v:95-96`; `data_valid` → command measured **2 [SIM]** | exact |
 | Over-force: `data_valid` → SAFE command | clk | 2 clocks | 40 ns | `f_over` at `:89`, `trip` at `:72`, SAFE at `:95`; measured 2 **[SIM]** | exact |
@@ -270,7 +280,7 @@ route is to import Terasic's own DE2-115 pin file; the wrapper uses its port nam
 
 ## 19. Known limitations and safety risks
 
-See also the matrix in the audit (appendix A). Summary: stuck-low MISO and FSR open-circuit are undetected; the e-stop does not remove actuator power; a fault takes up to one 20 ms frame to reach the servo pin; thresholds and LUT are uncalibrated; reset near a UART COMMIT is ambiguous to a host; pins, voltages, Quartus acceptance and all hardware behaviour are unverified. **The design must not be called fail-safe or safety-certified; any hazard to people or equipment needs an independent physical power cut-off and a proper safety assessment.**
+See also the matrix in the audit (appendix A). Summary (written before the stuck-low change; since then a MISO stuck low is rejected in simulation by the rising-edge-5 check in `rtl/adc_spi_interface.v`, with unconfirmed datasheet/pull-up assumptions, see README): stuck-low MISO and FSR open-circuit were undetected, FSR open-circuit still is; the e-stop does not remove actuator power; a fault takes up to one 20 ms frame to reach the servo pin; thresholds and LUT are uncalibrated; reset near a UART COMMIT is ambiguous to a host; pins, voltages, Quartus acceptance and all hardware behaviour are unverified. **The design must not be called fail-safe or safety-certified; any hazard to people or equipment needs an independent physical power cut-off and a proper safety assessment.**
 
 ## 20. AI/ML extension opportunities (future work only)
 
@@ -282,7 +292,7 @@ Sensor plausibility checks (minimum/dynamic-range/stuck-value), fault-forced out
 
 ## 22. Conclusion
 
-The deterministic digital path is implemented, small, and extensively simulated: 40 ns from valid sample to command, hard 1000–2000 µs clamping, latched faults, parameter guards, a board wrapper and a clean simulation regression (87 PASS, 0 FAIL in the cloud workspace). It is **not** a sub-microsecond end-to-end system: the SPI ADC and especially the 20 ms servo frame dominate. Hardware readiness is blocked on verified pin assignments, a Quartus compile, an independent power cut-off, sensor-fault handling decisions, and measurements.
+The deterministic digital path is implemented, small, and extensively simulated: 40 ns from valid sample to command, hard 1000–2000 µs clamping, latched faults, parameter guards, a board wrapper and a clean simulation regression (93 PASS, 0 FAIL, 0 SKIPPED in the extended suite, cloud workspace, simulation only). It is **not** a sub-microsecond end-to-end system: the SPI ADC and especially the 20 ms servo frame dominate. Hardware readiness is blocked on verified pin assignments, a Quartus compile, an independent power cut-off, sensor-fault handling decisions, and measurements.
 
 ## 23. Reproducible commands for tests and builds
 
@@ -310,16 +320,16 @@ Legend: **Source** = behaviour guaranteed by the code; **Sim** = demonstrated by
 
 | # | Scenario | Source logic | Expected | Behaviour inferred from RTL | Existing tests | Executed result | Gap / potential defect | Sev. | Action |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | Normal ADC sampling / SPI | `adc_spi_interface.v:82-109`, `reflex_top_spi.v:57,65` | valid samples every 17.52 µs | continuous conversions; 10-bit `data` + `data_valid` | `tb_adc_spi_interface` (+27/16/50 MHz variants), `tb_reflex_top_spi`, `tb_de2_wrapper` | PASS (std and ext) | analog sample instant is a model assumption | Low | confirm MCP3008 datasheet timing on hardware |
-| 2 | ADC disconnected / MISO stuck **high** | null bit = 1 → `frame_err` (`:99-104`); `since_sample` (`governor:83-85`) → `f_timeout`, latched; SAFE (`:95`) | SAFE and fault | no `data_valid` → after 1000 µs timeout fault, SAFE until reset | `tb_adc_spi_interface` (MISO open), `tb_reflex_top_spi`, `tb_de2_wrapper` ("ADC disconnected…", "timeout latched") | PASS | old command stays active up to 1000 µs (+ frame latch) = stale-sample window | Medium | accept and document; or shorten `ADC_TIMEOUT_US` (needs recalculation of the guard) |
-| 3 | MISO stuck **low** | null bit 0, all data 0 → valid code 0 → LUT[0] = 2000 µs (`lut_engine.v:34`) | fault | **no fault; commands the maximum pulse** | `tb_de2_wrapper` "CHARACTERISATION: MISO stuck low" (documents the gap) | PASS (as characterisation) | **undetected stuck-low / ambiguous with "no force"** | **High** | add minimum-plausibility or dynamic-range check, or bias the sensor so rest ≠ 0; decide gripper direction semantics |
+| 1 | Normal ADC sampling / SPI | `adc_spi_interface.v:93-121`, `reflex_top_spi.v:57,65` | valid samples every 17.52 µs | continuous conversions; 10-bit `data` + `data_valid` | `tb_adc_spi_interface` (+27/16/50 MHz variants), `tb_reflex_top_spi`, `tb_de2_wrapper` | PASS (std and ext) | analog sample instant is a model assumption | Low | confirm MCP3008 datasheet timing on hardware |
+| 2 | ADC disconnected / MISO stuck **high** | null bit = 1 → `frame_err` (`adc_spi_interface.v:111-116`); `since_sample` (`governor:83-85`) → `f_timeout`, latched; SAFE (`:95`) | SAFE and fault | no `data_valid` → after 1000 µs timeout fault, SAFE until reset | `tb_adc_spi_interface` (MISO open), `tb_reflex_top_spi`, `tb_de2_wrapper` ("ADC disconnected…", "timeout latched") | PASS | old command stays active up to 1000 µs (+ frame latch) = stale-sample window | Medium | accept and document; or shorten `ADC_TIMEOUT_US` (needs recalculation of the guard) |
+| 3 | MISO stuck **low** | **Historical (defect found in this audit, HEAD `6bc0cb9`):** null bit 0, all data 0 → valid code 0 → LUT[0] = 2000 µs (`lut_engine.v:34`), no fault. **Now:** MISO must be high at rising edge 5 (`idle_hi`, `adc_spi_interface.v:105,111`); a stuck-low line fails that → `frame_err` → no `data_valid` → ADC timeout | fault | **Before:** no fault; commanded the maximum pulse (2000 µs). **Now [SIM only]:** frames rejected, ADC timeout latched about 1010 µs after onset, SAFE 1000 µs until reset; legitimate code 0 and 1023 still accepted | Before: `tb_de2_wrapper` "CHARACTERISATION" (documented the gap). Now: `tb_adc_spi_interface`, `tb_reflex_top_spi` (stuck-low, glitch, power-up, steady readings), `tb_de2_wrapper`, `tb_miso_pullup_rise`, `tb_timeout_boundary`, `tb_stuck_low_boundary` | PASS (simulation only) | **Open:** (a) high-impedance-before-null-bit behaviour and pull-up speed (simulated limit about 5 µs) are **not confirmed** against the MCP3008 datasheet; (b) the weak pull-up on `GPIO[3]` must really be enabled, otherwise every frame is rejected (safe direction: ADC timeout, SAFE); (c) **not validated on hardware**; (d) an open FSR reading ~0 is still undetected | **High** until datasheet and hardware confirmation (mitigated in simulation only) | confirm the datasheet, add an external 4.7–10 kΩ pull-up, scope MISO; decide FSR open-circuit handling and gripper direction semantics |
 | 4 | FSR open / short / implausible | `f_range` at code ≥ 1015 (`:88`); no low or dynamic checks | detect open and short | short-to-high detected (if wired that way); **open (reads ~0) and constant readings undetected** | `tb_governor_boundary` (1014/1015), `tb_governor_priority`, `tb_de2_wrapper` range fault | PASS | no stuck-value or minimum check; polarity depends on divider wiring | **High** | define divider wiring; add plausibility monitor (future change) |
-| 5 | SPI timeout, frame length, framing errors | fixed 17-edge FSM (`:96`); only null bit checked | detect corrupt frames | wrong bits that keep the null bit 0 are accepted; no CRC in MCP3008 | `tb_adc_spi_interface` (model timing checks, `violations == 0`), `tb_adc_bad_param` | PASS | undetectable data corruption inside a "valid" frame | Medium | hardware limitation; add sanity filtering if needed |
+| 5 | SPI timeout, frame length, framing errors | fixed 17-edge FSM (`adc_spi_interface.v:108`); validity = null bit 0 **and** MISO high at rising edge 5 (`idle_hi`, `:105,111`) | detect corrupt frames | wrong data bits behind a valid null bit and a high edge-5 level are still accepted; no CRC in MCP3008; the edge-5 check itself is simulation-only and datasheet-unconfirmed | `tb_adc_spi_interface` (model timing checks, `violations == 0`; stuck-low and no-pull-up cases), `tb_miso_pullup_rise`, `tb_adc_bad_param` | PASS | undetectable data corruption inside a "valid" frame | Medium | hardware limitation; add sanity filtering if needed |
 | 6 | Force threshold exceeded | `adc_value >= FORCE_MAX` (`:89`) → `f_over`; `trip` (`:72`) | SAFE | over-force → SAFE 2 clocks after `data_valid` | `tb_governor_boundary` (899/900), `tb_governor_priority`, `tb_de2_wrapper` | PASS | threshold 900 is a placeholder | Medium | calibrate (section 18) |
 | 7 | Hysteresis / resume | clear when sample < `FORCE_RESUME` (`:90`) | resumes below 800 | holds 800–899 | `tb_governor_boundary` (799/800), `tb_governor_priority`, `tb_de2_wrapper` (790 resumes) | PASS | placeholder values | Low | calibrate |
 | 8 | ADC range fault, latching | `>= ADC_FAULT_HI` (`:88`), latched until reset | latched SAFE | latched; also sets over-force | `tb_governor_boundary` (1014/1015), `tb_de2_wrapper` | PASS | placeholder 1015 | Low | calibrate |
 | 9 | E-stop assertion and reset | `if (estop) f_estop <= 1` (`:81`); `trip` includes live e-stop (`:72`); reset clears (`:78`); wrapper polarity (`TactileReflexive.v:38-39`) | SAFE and latched | SAFE in 3 edges; latched; reset clears | `tb_governor_priority`, `tb_reflex_top`, `tb_de2_wrapper` | PASS | **board button is not a safety device; actuator power not removed; open wire = not pressed on a normally-open design** | **High** (system) | independent hardware power cut-off; normally-closed e-stop wiring (future wrapper change) |
-| 10 | Reset during an SPI transaction / near command update | ADC reset → `S_GAP`, CS high ≥ HALF clocks (`adc:73-78`); governor reset (`:77-79`); servo reset (`servo:42`) | clean abort | aborted frame produces no `data_valid`; command SAFE | `tb_adc_spi_interface` (reset mid-frame), `tb_governor_priority` (sample in reset clock), `tb_servo_pwm`, `tb_de2_wrapper` (servo low after reset) | PASS | pulse truncated by reset is exempt from width checks; reset exactly at `data_valid` clock covered only in the governor unit test | Low | acceptable |
+| 10 | Reset during an SPI transaction / near command update | ADC reset → `S_GAP`, CS high ≥ HALF clocks (`adc_spi_interface.v:84-89`); governor reset (`:77-79`); servo reset (`servo:42`) | clean abort | aborted frame produces no `data_valid`; command SAFE | `tb_adc_spi_interface` (reset mid-frame), `tb_governor_priority` (sample in reset clock), `tb_servo_pwm`, `tb_de2_wrapper` (servo low after reset) | PASS | pulse truncated by reset is exempt from width checks; reset exactly at `data_valid` clock covered only in the governor unit test | Low | acceptable |
 | 11 | LUT bank switch / incomplete upload | write ports tied off in this build (`TactileReflexive.v:60-63`); UART build has atomic swap | n/a for this build | unused in the DE2-115 build | `tb_lut_engine`, `tb_lut_upload_ctrl`, `tb_commit_reset_race`, `tb_lut_uart_top_load`, `tb_safety_vs_upload` | PASS | reset around a UART COMMIT is ambiguous to the host (characterised, INFO-only) | Low (this build) / Medium (UART build) | host must re-upload after reset |
 | 12 | Servo PWM min / max / malformed commands | governor clamps to 1000–2000 (`:73-74,96`); servo module itself takes 0…4095 | pulses 1000–2000 µs | pin pulses stay within limits | `tb_servo_pwm` (exact widths, width 0 silent), `tb_servo_bad_param`, `tb_de2_wrapper` (min 1000, max 2000, none > 2000 µs) | PASS | servo module has no own clamp (relies on the governor); `FRAME_US > 2000` assumes governor max | Low | keep governor in the path |
 | 13 | Fault propagation to the servo output | command in 2–3 clocks; latch only at frame boundary (`servo:46-48`) | prompt | **up to ~20 ms + pulse width** | `tb_fault_latency` (INFO windows; structure asserted), `tb_de2_wrapper` | PASS (structure); numbers derived | unacceptable if requirement is ≪ 20 ms | **High** | fault-forced output gating / shorter frame (needs new simulation + hardware validation) |
@@ -346,7 +356,7 @@ Legend: **Source** = behaviour guaranteed by the code; **Sim** = demonstrated by
 
 | Item | Detail |
 |---|---|
-| Repository | `/home/user/tactile-reflex-system` (assistant's cloud workspace), branch `claude/gallant-turing-hw1leg`. The audit was performed in that cloud workspace (not on a Windows machine), on base commit `c1870c3` plus then-uncommitted changes (two testbench fixes, `CHECKSUMS.sha256`, `README.md`, `run_sim.sh`, new `quartus/` and `tb/tb_de2_wrapper.v`); those changes are included in the commit that adds this report |
+| Repository | `/home/user/tactile-reflex-system` (assistant's cloud workspace), branch `claude/gallant-turing-hw1leg`. The audit was performed in that cloud workspace (not on a Windows machine), on base commit `c1870c3` plus then-uncommitted changes (two testbench fixes, `CHECKSUMS.sha256`, `README.md`, `run_sim.sh`, new `quartus/` and `tb/tb_de2_wrapper.v`); those changes are included in the commit that adds this report. The MISO stuck-low detector and its tests described in this report are further uncommitted working-tree changes on top of `6bc0cb9` |
 | Relation to the user's Windows project | **Not verified identical.** The snapshot zip sent earlier has SHA-256 `4b314edb397f7d6fefa6b0ebf35c26b71e2d6cc17039b82b6796d02e6eb69ef9`; compare it with the user's copy |
 | Test runs | on scratch copies of the working tree (ignored artifacts untouched); see section 14 |
 | Latency probes | scratch testbench outside the repository (not added): CS fall → `data_valid` 850 clocks; `data_valid` → `lut_valid` 1; → command 2; period 876; over-force 2; e-stop button → command 3 edges; reset release → first CS fall 28, first `data_valid` 878 |

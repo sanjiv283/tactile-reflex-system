@@ -16,9 +16,19 @@
 //          Ignored while busy, so conversions never overlap.
 // channel: latched when a conversion starts.
 // data_valid : 1-clock pulse with data/data_channel.
-// frame_err  : 1-clock pulse instead of data_valid when the null bit reads 1
-//              (e.g. MISO disconnected with the pin's pull-up enabled). Data is
-//              not updated, so the safety governor's ADC timeout still applies.
+// frame_err  : 1-clock pulse instead of data_valid when the frame is not trusted:
+//              - the null bit reads 1 (e.g. MISO disconnected with the pin's pull-up enabled), or
+//              - MISO was not high at rising edge 5 (see "Stuck-low check" below).
+//              Data is not updated, so the safety governor's ADC timeout still applies.
+// Stuck-low check: the MCP3008 leaves DOUT high-impedance until it drives the null bit after the
+//   falling edge that follows rising edge 6, so at rising edge 5 the pin must be held HIGH by a
+//   pull-up (FPGA weak pull-up, ideally also an external one). A line stuck low (short to ground)
+//   would otherwise read as null bit 0 + code 0 = a valid "zero force" frame. A real code 0 is not
+//   affected: the ADC is still high-impedance at edge 5, so the pull-up reads 1.
+//   ASSUMPTIONS NOT CONFIRMED against the MCP3008 datasheet or on hardware: DOUT is high-impedance
+//   before the null bit; the pull-up reaches the input-high level within about 5 us of CS rising
+//   (the line charges from the last data bit; simulated limit ~5.0 us). Without a working pull-up
+//   every frame is rejected (the safe direction: ADC timeout fault, SAFE pulse).
 // MISO goes through a 2-flop synchronizer before sampling.
 module adc_spi_interface #(
     parameter CLK_HZ  = 100_000_000,
@@ -61,6 +71,7 @@ module adc_spi_interface #(
     reg [10:0]   rx;           // {null, B9..B0} after 17 shifts
     reg [2:0]    ch_l;
     reg [1:0]    miso_s;
+    reg          idle_hi;      // MISO level at rising edge 5 (must be 1: DOUT still high-impedance, pulled up)
 
     wire tick = (div == HALF - 1);
     assign busy     = (state != S_IDLE);
@@ -75,7 +86,7 @@ module adc_spi_interface #(
             // so an aborted frame always gets a proper CS-high time.
             state <= S_GAP; div <= 0; rises <= 0; tx <= 0; rx <= 0; ch_l <= 0;
             spi_cs_n <= 1'b1; spi_sclk <= 1'b0;
-            data <= 0; data_channel <= 0;
+            data <= 0; data_channel <= 0; idle_hi <= 1'b0;
         end else begin
             div <= (state == S_IDLE || tick) ? 0 : div + 1'b1;
             case (state)
@@ -91,12 +102,13 @@ module adc_spi_interface #(
                         spi_sclk <= 1'b1;
                         rises    <= rises + 1'b1;
                         rx       <= {rx[9:0], miso_s[1]};
+                        if (rises == 5'd4) idle_hi <= miso_s[1];   // rising edge 5
                     end else begin                          // falling edge
                         spi_sclk <= 1'b0;
                         if (rises == 5'd17) begin
                             spi_cs_n <= 1'b1;
                             state    <= S_GAP;
-                            if (rx[10] == 1'b0) begin
+                            if (rx[10] == 1'b0 && idle_hi == 1'b1) begin
                                 data         <= rx[9:0];
                                 data_channel <= ch_l;
                                 data_valid   <= 1'b1;

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Runs every testbench with Icarus Verilog and prints a per-test summary.
-#   sh run_sim.sh              default suite (about 2 minutes)
-#   sh run_sim.sh --extended   default suite + 20 ms-frame integration and slower repeats (about 5-6 minutes)
+#   sh run_sim.sh              default suite (a few minutes)
+#   sh run_sim.sh --extended   default suite + 20 ms-frame integration and slower repeats (about 11 minutes measured on the cloud workspace)
 #   EXTENDED=1 sh run_sim.sh   same as --extended
 # Exit code is nonzero if anything fails (Icarus itself always exits 0).
 # Generated files (sim_*, *.log, *.vcd) are ignored by .gitignore.
@@ -90,6 +90,13 @@ run uart_tx_min   -Ptb_uart_tx.CLK_HZ=8000000 -Ptb_uart_tx.BAUD=1000000 rtl/uart
 DE2_SYNTH="quartus/TactileReflexive.v rtl/reflex_top_spi.v rtl/reflex_top.v rtl/adc_spi_interface.v rtl/lut_engine.v rtl/safety_governor.v rtl/servo_pwm_generator.v"
 DE2="$DE2_SYNTH tb/mcp3008_model.v tb/tb_de2_wrapper.v"
 run de2_wrapper $DE2
+
+# ---- MISO stuck-low check (rising edge 5, rtl/adc_spi_interface.v): slow pull-up characterisation, clock-exact ADC-timeout vs servo
+#      frame latch window, and the whole chain with the stuck-low onset swept across the servo frame (short frame here, 20 ms in --extended)
+run pullup_rise_4u -Ptb_miso_pullup_rise.PULL_RISE_NS=4000 -Ptb_miso_pullup_rise.EXPECT_OK=1 rtl/adc_spi_interface.v tb/mcp3008_model.v tb/tb_miso_pullup_rise.v
+run pullup_rise_6u -Ptb_miso_pullup_rise.PULL_RISE_NS=6000 -Ptb_miso_pullup_rise.EXPECT_OK=0 rtl/adc_spi_interface.v tb/mcp3008_model.v tb/tb_miso_pullup_rise.v
+run timeout_boundary $RTL_CORE tb/tb_timeout_boundary.v
+run stuck_low_boundary $RTL_CORE rtl/adc_spi_interface.v rtl/reflex_top_spi.v tb/mcp3008_model.v tb/tb_stuck_low_boundary.v
 
 # ---- Stage 6B.2: Python LUT generator, and loading of generated files into rtl/lut_engine.v (INIT_FILE / $readmemh)
 # Python is part of the regression: $PYTHON, else python3, else python. A missing interpreter is a FAILURE, not a skip.
@@ -305,8 +312,10 @@ if [ $extended -eq 1 ]; then
     run resp_robust_d5   -Ptb_resp_robust.DEPTH_P=5 $RESP
     run ctrl_timing_50m  -Ptb_ctrl_timing.CLK_HZ_P=50000000 -Ptb_ctrl_timing.TIMEOUT_US_P=1 rtl/lut_upload_ctrl.v tb/tb_ctrl_timing.v
     run de2_wrapper_20ms -Ptb_de2_wrapper.FRAME_US_TB=20000 $DE2
+    run timeout_boundary_20ms -Ptb_timeout_boundary.FRAME_US_TB=20000 -Ptb_timeout_boundary.SPAN=2 $RTL_CORE tb/tb_timeout_boundary.v
+    run stuck_low_boundary_20ms -Ptb_stuck_low_boundary.FRAME_US_TB=20000 -Ptb_stuck_low_boundary.COARSE_US=5000 -Ptb_stuck_low_boundary.FINE_US=20 $RTL_CORE rtl/adc_spi_interface.v rtl/reflex_top_spi.v tb/mcp3008_model.v tb/tb_stuck_low_boundary.v
 else
-    for t in spi_top_20ms servo_pwm_50m servo_pwm_27m servo_pwm_100m resp_robust_d2 resp_robust_d5 ctrl_timing_50m de2_wrapper_20ms; do
+    for t in spi_top_20ms servo_pwm_50m servo_pwm_27m servo_pwm_100m resp_robust_d2 resp_robust_d5 ctrl_timing_50m de2_wrapper_20ms timeout_boundary_20ms stuck_low_boundary_20ms; do
         record "$t" SKIPPED "optional: run 'sh run_sim.sh --extended'"
     done
 fi

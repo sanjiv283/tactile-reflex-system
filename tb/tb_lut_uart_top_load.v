@@ -38,6 +38,7 @@ module tb_lut_uart_top_load;
         .upload_entries(upload_entries), .upload_commit(upload_commit),
         .uart_txd(uart_txd), .tx_busy(tx_busy), .resp_overflow(resp_overflow));
     mcp3008_model u_adc (.cs_n(cs_n), .sclk(sclk), .din(mosi), .dout(adc_dout));
+    pullup (adc_dout);   // the board's MISO pull-up: DOUT is high-impedance until the null bit and adc_spi_interface checks it
 
     wire [11:0] pulse_cmd = dut.u_spi.u_core.pulse_cmd;
 

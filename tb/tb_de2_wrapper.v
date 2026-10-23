@@ -136,10 +136,18 @@ module tb_de2_wrapper;
         SW[0] = 1'b1; next_pulse;
         check(last_w == 2000, "SW0 = 1 again: LUT value returns");
 
-        // ---------------- CHARACTERISATION: MISO stuck low looks like a valid reading of 0
-        miso_mode = 2; next_pulse; next_pulse;
-        check(LEDR[3:0] === 4'b0000 && last_w == 2000, "CHARACTERISATION: MISO stuck low = valid code 0, no fault, pulse 2000 us (the maximum command)");
+        // ---------------- MISO stuck low (short to ground) while the real force is high (880): detected, SAFE output
+        // (stuck-low check in rtl/adc_spi_interface.v; datasheet/electrical assumptions behind it are NOT confirmed)
+        adc.value[0] = 10'd880; next_pulse; next_pulse;
+        check(last_w == 1120 && LEDR[3:0] === 4'b0000, "stuck-low baseline: real force 880 -> 1120 us, no fault");
+        nframe_err = 0;
+        miso_mode = 2; next_pulse; next_pulse;       // two pulses: the 1 ms ADC timeout must expire before the frame is latched (short frame)
+        check(nframe_err > 0, "MISO stuck low: invalid frames are reported (frame-error LED pulses)");
+        check(LEDR[2] === 1'b1 && last_w == 1000, "MISO stuck low: ADC TIMEOUT latched (fault LED 2), SAFE 1000 us (not the zero-force 2000 us)");
         miso_mode = 0; next_pulse;
+        check(LEDR[2] === 1'b1 && last_w == 1000, "stuck-low released: timeout stays latched until reset");
+        press_reset; next_pulse;
+        check(LEDR[2] === 1'b0 && last_w == 1120, "reset recovers from the stuck-low fault (force 880 -> 1120 us)");
 
         // ---------------- summary monitors
         check(npulse >= 14, "monitor ran: at least 14 complete servo pulses were observed (not vacuous)");

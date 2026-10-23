@@ -35,7 +35,7 @@ module tb_reflex_top_spi;
     mcp3008_model u_adc (.cs_n(cs_n), .sclk(sclk), .din(mosi), .dout(adc_dout));
 
     integer errors = 0;
-    task check(input cond, input [8*56-1:0] name);
+    task check(input cond, input [8*96-1:0] name);
         begin
             if (cond === 1'b1) $display("PASS  %0s", name);
             else begin $display("FAIL  %0s", name); errors = errors + 1; end
@@ -93,6 +93,10 @@ module tb_reflex_top_spi;
             if (!fault_led[2]) to_expired = 1;
         end
     endtask
+
+    // command monitor: any clock with the command different from SAFE while watch_pc is set
+    reg watch_pc = 0; integer pc_bad = 0;
+    always @(posedge clk) if (watch_pc && dut.u_core.pulse_cmd !== 12'd1000) pc_bad = pc_bad + 1;
 
     integer i, n0, lat, lat_min, lat_max, ok_i, e0, v0, f0, c0;
     realtime t_valid, t_fault, per;
@@ -182,20 +186,50 @@ module tb_reflex_top_spi;
         check(nvalid > v0 && u_adc.conversions > c0 && fault_led == 4'b0000 && dut.u_core.pulse_cmd == 1712,
               "after mid-frame reset: sampling resumes, no fault, 300 -> 1712 us");
 
-        // ---- 9. MISO stuck LOW - KNOWN UNDETECTABLE FAULT (documents a limitation, not a protection)
-        // Stuck low gives null bit 0 and all data bits 0: every frame looks valid and reads "no force".
-        // The design has no way to tell this from a real zero reading, so no fault is raised.
+        // ---- 9. MISO stuck LOW: detected (stuck-low check in rtl/adc_spi_interface.v; it used to be undetectable)
+        // The MCP3008 output is high-impedance until the null bit, so the pull-up must read 1 at SCLK rising edge 5.
+        // A line shorted to ground reads 0 there: the frame is rejected (frame_err), no data_valid reaches the governor,
+        // its 1000 us ADC timeout latches and the pulse is SAFE. Real force stays 880 in the model throughout.
+        // (Datasheet and electrical assumptions behind this are NOT confirmed - see README.)
         u_adc.value[0] = 10'd880; ticks(2*CONV_CLKS + 20);
         check(dut.u_core.pulse_cmd == 1120 && fault_led == 4'b0000, "stuck-low baseline: real force 880 -> 1120 us");
         @(posedge cs_n); ticks(2); miso_stuck_low = 1;
         e0 = nerr; v0 = nvalid; ticks(300_000);          // 3 ms = 3x the ADC timeout
         $display("INFO  stuck-low MISO: %0d valid frames, %0d frame_err, fault_led=%b, pulse=%0d us (model still holds 880)",
                  nvalid - v0, nerr - e0, fault_led, dut.u_core.pulse_cmd);
-        check(nerr == e0 && nvalid - v0 >= 150, "KNOWN LIMITATION: stuck-low frames look valid (no frame_err)");
-        check(fault_led == 4'b0000 && dut.u_core.pulse_cmd == 2000,
-              "KNOWN LIMITATION: stuck-low reads as 0 force, no fault, command 2000 us");
+        check(nerr - e0 >= 150 && nvalid - v0 <= 1, "stuck-low: frames rejected as frame_err (at most the frame in flight)");
+        check(fault_led == 4'b0100 && dut.u_core.pulse_cmd == 1000,
+              "stuck-low: ADC timeout latched, SAFE 1000 us (not read as zero force)");
         @(posedge cs_n); ticks(2); miso_stuck_low = 0; ticks(3*CONV_CLKS);
-        check(fault_led == 4'b0000 && dut.u_core.pulse_cmd == 1120, "stuck-low released: real reading restored");
+        check(nvalid > v0 && fault_led == 4'b0100 && dut.u_core.pulse_cmd == 1000,
+              "stuck-low released: samples valid again, fault stays latched");
+        do_reset; ticks(4*CONV_CLKS);
+        check(fault_led == 4'b0000 && dut.u_core.pulse_cmd == 1120, "stuck-low: reset recovers (880 -> 1120 us)");
+
+        // ---- 9b. Legitimate steady readings are NOT stuck-low (code 0 = zero force must be accepted)
+        v0 = nvalid; e0 = nerr; u_adc.value[0] = 10'd0; ticks(500_000);              // 5 ms of steady code 0
+        check(fault_led == 4'b0000 && nerr == e0 && nvalid - v0 > 200 && dut.u_core.pulse_cmd == 2000,
+              "steady legitimate code 0: valid frames, no fault, LUT[0] = 2000 us");
+        v0 = nvalid; e0 = nerr; u_adc.value[0] = 10'd300; ticks(500_000);
+        check(fault_led == 4'b0000 && nerr == e0 && nvalid - v0 > 200 && dut.u_core.pulse_cmd == 1712,
+              "steady code 300: valid frames, no fault");
+
+        // ---- 9c. Short stuck-low glitch (< 1 ms ADC timeout) is tolerated, a longer one latches
+        @(posedge cs_n); ticks(2); miso_stuck_low = 1; ticks(60_000);                   // 600 us
+        @(posedge cs_n); ticks(2); miso_stuck_low = 0; ticks(5*CONV_CLKS);
+        check(fault_led == 4'b0000 && dut.u_core.pulse_cmd == 1712, "600 us stuck-low glitch: no fault, operation continues");
+        @(posedge cs_n); ticks(2); miso_stuck_low = 1; ticks(120_000);                  // 1200 us
+        @(posedge cs_n); ticks(2); miso_stuck_low = 0; ticks(5*CONV_CLKS);
+        check(fault_led == 4'b0100 && dut.u_core.pulse_cmd == 1000, "1200 us stuck-low: ADC timeout latched, SAFE");
+        do_reset; ticks(4*CONV_CLKS);
+        check(fault_led == 4'b0000 && dut.u_core.pulse_cmd == 1712, "glitch test: reset recovers");
+
+        // ---- 9d. Stuck low from power-up: the command never leaves SAFE
+        miso_stuck_low = 1; do_reset; ticks(4); pc_bad = 0; watch_pc = 1; ticks(300_000);
+        watch_pc = 0;
+        check(fault_led == 4'b0100 && pc_bad == 0, "power-up with stuck-low MISO: command stays SAFE (1000 us), ADC timeout latched");
+        miso_stuck_low = 0; do_reset; ticks(4*CONV_CLKS);
+        check(fault_led == 4'b0000 && dut.u_core.pulse_cmd == 1712, "power-up stuck-low: reset recovers");
 
         // ---- 10. Range fault through the SPI path (latched)
         setf(1020); check(fault_led == 4'b0011 && dut.u_core.pulse_cmd == 1000, "1020: range fault + over-force");

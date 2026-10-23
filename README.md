@@ -78,8 +78,15 @@ the same as "no force". The governor can't detect that case; mention it in the r
   → about 17.5 µs at 100 MHz / 1 MHz (≈57 kS/s).
 - `frame_err`: null bit read as 1 → no `data_valid`. With the MISO pull-up enabled,
   a disconnected MISO is detected this way; the safety governor's ADC timeout then
-  trips because no valid samples arrive. MISO stuck **low** reads as 0 = "no force"
-  and is **not** detectable.
+  trips because no valid samples arrive. MISO stuck **low** is also rejected as `frame_err`: the MCP3008 leaves
+  DOUT high-impedance until the null bit, so at SCLK rising edge 5 the pull-up must read 1; a line shorted to ground
+  reads 0 and the frame is not trusted (a real code 0 is unaffected, the ADC is still high-impedance at edge 5).
+  **Assumptions NOT confirmed** (datasheet not accessible, no board): DOUT is high-impedance before the null bit; the
+  pull-up reaches the input-high level within about 5 µs of CS rising (simulated limit ≈ 5.0 µs with a pure-delay
+  model, `tb_miso_pullup_rise`). **Without a working pull-up every frame is rejected** (ADC timeout fault, SAFE pulse),
+  so the weak pull-up on `GPIO[3]` (`quartus/TactileReflexive_assignments.tcl`) must be confirmed in the `.qsf` /
+  Fitter report and an external 4.7-10 kΩ pull-up to the same 3.3 V is advisable. This does not detect a wrong but
+  plausible code, an open FSR (reads ~0), or a repeated identical sample.
 - Source impedance: the FSR divider can be up to ~10 kΩ. If readings look low or noisy
   on hardware, try a lower `SCLK_HZ` (e.g. 500 kHz) and compare (Week 2 check).
 
@@ -129,9 +136,16 @@ The default `spi_top` test uses a 2.5 ms servo frame to stay fast. The extended 
   procedure has not been tried on EDA Playground.
 
 Integration test (`tb_reflex_top_spi.v`) also covers a reset in the middle of a conversion and
-MISO stuck low. Stuck-low is a **known undetectable fault**: every frame looks valid and reads
-0 (no force), so no fault is raised; the test documents that behaviour, it is not a protection.
-A disconnected (open) MISO *is* detected, through the null bit and the ADC timeout.
+MISO stuck low (real force 880 in the model): stuck-low frames are rejected, the ADC timeout latches and the pulse is
+SAFE (1000 µs), not the zero-force 2000 µs; it stays latched until reset. A 600 µs glitch is tolerated, a 1200 µs one
+latches, a line stuck low from power-up never leaves SAFE, and steady legitimate readings (code 0, 300) raise no fault.
+A disconnected (open) MISO is detected through the null bit and the ADC timeout, as before.
+Stuck-low regression rows: `adc` (unit: legitimate codes 0/1023, stuck-low, low-until-null-bit, no pull-up), `spi_top`,
+`de2_wrapper`, `pullup_rise_4u` / `pullup_rise_6u` (`tb_miso_pullup_rise`: slow pull-up characterisation),
+`timeout_boundary` (`tb_timeout_boundary`: clock-exact ADC-timeout vs servo frame latch; the latch keeps the old command only
+when the fault is set 1 clock (20 ns) before the latch edge or later, i.e. a 2-clock = 40 ns window; the next latch is always
+SAFE) and `stuck_low_boundary` (`tb_stuck_low_boundary`: onset swept across the servo frame); the `*_20ms` rows repeat the
+two boundary tests with the real 20 ms servo frame (`--extended`).
 All results are simulation only; nothing here is validated on hardware.
 
 ## Stage 3 – UART LUT upload (simulation only)
@@ -445,8 +459,8 @@ none on outputs), a TCL script that adds the sources to an open Quartus project,
 `de2_wrapper` (board-level simulation with the MCP3008 model: reset, start-up, normal operation, over-force with hysteresis, range
 fault, e-stop, ADC disconnected, grip disable, every servo pulse 1000..2000 us; fast 2.5 ms frame), `de2_wrapper_20ms` (extended,
 real 20 ms frame), `sdc_ports` (SDC vs real ports) and `lint_wrapper` (`-Wall`, no warnings). **Not done:** Quartus compilation,
-timing analysis, verified pin assignments, hardware. Known sensor-fault gap found by `de2_wrapper` (labelled CHARACTERISATION): a
-MISO line stuck low reads as a valid code 0 and commands the largest pulse with no fault.
+timing analysis, verified pin assignments, hardware. A MISO line stuck low is now rejected by the rising-edge-5 check in
+`rtl/adc_spi_interface.v` (ADC timeout fault, SAFE pulse); see the MISO notes above for the unconfirmed datasheet and pull-up assumptions.
 
 ### Open questions and limits
 - **Parameter guards (Stage 6B.1).** `servo_pwm_generator` and `safety_governor` reject invalid `CLK_HZ`, `FRAME_US` and governor

@@ -105,9 +105,14 @@ the built-in table is used); whether the two 64x12 LUT arrays become block RAM o
   worst case) to reach the pin. Measure on a scope.
 * **ADC start-up and failure.** After reset the output is SAFE until the first valid sample (about 35 us); the 1 ms ADC timeout does
   not fire at start-up (simulated). A disconnected ADC (MISO pulled high) is detected (frame error -> timeout -> latched SAFE).
-  **MISO stuck low is NOT detected**: it reads as a valid code 0, which the placeholder LUT maps to the largest pulse (2000 us;
-  assumed to be the most-closed command). An FSR wired so that a broken wire reads 0 behaves the same way. Decide whether a
-  "reading too low for too long" fault is wanted before any load.
+  **MISO stuck low** is rejected as a frame error (simulation): the MCP3008 output should be high-impedance until the null bit, so at
+  SCLK rising edge 5 `rtl/adc_spi_interface.v` requires MISO to be HIGH (held by the pull-up); a short to ground fails that, the ADC
+  timeout latches and the pulse is SAFE. **Not confirmed:** the datasheet behaviour (DOUT high-impedance before the null bit) and
+  the pull-up speed (simulated limit about 5 us after CS rises). **This makes the MISO pull-up mandatory**: if the weak pull-up on
+  `GPIO[3]` is not really enabled, every frame is rejected and the board shows the ADC-timeout LED (LEDR2) with a SAFE pulse. Check
+  the `.qsf`/Fitter report, add an external 4.7-10 kOhm pull-up to the same 3.3 V, and look at MISO on a scope. An FSR wired so
+  that a broken wire reads 0 is still NOT detected (reads as a valid code 0 = zero force, 2000 us); decide whether a "reading too
+  low for too long" fault is wanted before any load.
 * **Uncalibrated values.** `FORCE_MAX 900`, `FORCE_RESUME 800`, `ADC_FAULT_HI 1015` and the 2000 - 16*i LUT are placeholders.
 * **Electrical.** 3.3 V logic on the header; power the MCP3008 from 3.3 V; separate servo supply with common ground; servo unloaded and
   disconnected for the first output checks; confirm switch polarity and the header's supply pins in the manual.

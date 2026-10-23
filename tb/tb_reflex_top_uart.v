@@ -31,6 +31,7 @@ module tb_reflex_top_uart;
         .upload_active(upload_active), .upload_failed(upload_failed),
         .upload_entries(upload_entries), .upload_commit(upload_commit));
     mcp3008_model u_adc (.cs_n(cs_n), .sclk(sclk), .din(mosi), .dout(adc_dout));
+    pullup (adc_dout);   // the board's MISO pull-up: DOUT is high-impedance until the null bit and adc_spi_interface checks it
 
     integer errors = 0;
     task check(input cond, input [8*96-1:0] name);

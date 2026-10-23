@@ -21,21 +21,28 @@ module tb_adc_spi_interface;
     // MISO: driven by the model, or left floating to emulate a broken wire.
     // pullup models the FPGA pin pull-up to be enabled in the board constraints.
     reg  adc_connected = 1;
+    reg  miso_stuck = 0;                          // 1 = MISO shorted to ground for the whole frame
+    reg  miso_early_low = 0;                      // 1 = MISO low until the null bit, then the ADC answers normally
+    reg  no_pullup = 0;                           // 1 = the DUT sees the raw ADC output (high-impedance = floating, no pull-up)
     wire miso;
-    assign miso = adc_connected ? adc_dout : 1'bz;
     pullup (miso);
+    wire dut_miso = no_pullup ? adc_dout : miso;
 
     adc_spi_interface #(.CLK_HZ(CLK_HZ), .SCLK_HZ(SCLK_HZ)) dut (
         .clk(clk), .rst(rst), .start(start), .channel(channel),
         .busy(busy), .data(data), .data_channel(data_channel),
         .data_valid(data_valid), .frame_err(frame_err),
-        .spi_cs_n(cs_n), .spi_sclk(sclk), .spi_mosi(mosi), .spi_miso(miso)
+        .spi_cs_n(cs_n), .spi_sclk(sclk), .spi_mosi(mosi), .spi_miso(dut_miso)
     );
 
     mcp3008_model u_adc (.cs_n(cs_n), .sclk(sclk), .din(mosi), .dout(adc_dout));
 
+    // low until the falling edge that follows SCLK rising edge 6 (the last high-impedance bit), i.e. up to the null bit
+    wire early_low = miso_early_low && !cs_n && (dut.rises < 6 || (dut.rises == 6 && sclk));
+    assign miso = (miso_stuck || early_low) ? 1'b0 : (adc_connected ? adc_dout : 1'bz);
+
     integer errors = 0;
-    task check(input cond, input [8*56-1:0] name);
+    task check(input cond, input [8*96-1:0] name);
         begin
             if (cond === 1'b1) $display("PASS  %0s", name);
             else begin $display("FAIL  %0s", name); errors = errors + 1; end
@@ -188,6 +195,37 @@ module tb_adc_spi_interface;
         u_adc.value[2] = 10'd222;
         convert(2);
         check(r_valid && r_val == 10'd222, "recovers after MISO reconnected");
+
+        // ---- 7b. Legitimate zero / full-scale codes are accepted (the ADC is still high-impedance at rising edge 5)
+        u_adc.value[0] = 10'd0;    convert(0);
+        check(r_valid && !r_err && r_val == 10'd0,    "legitimate code 0 is not stuck-low: data_valid, no frame_err");
+        convert(0);
+        check(r_valid && !r_err && r_val == 10'd0,    "legitimate code 0 again (previous data bit 0): accepted");
+        u_adc.value[0] = 10'd1023; convert(0);
+        check(r_valid && !r_err && r_val == 10'd1023, "legitimate code 1023: data_valid, no frame_err");
+        u_adc.value[0] = 10'd0;    convert(0);
+        check(r_valid && !r_err && r_val == 10'd0,    "code 1023 then 0: accepted");
+
+        // ---- 7c. MISO stuck LOW (short to ground): high-impedance period reads 0 -> frame rejected, previous data kept
+        u_adc.value[0] = 10'd880;  convert(0);
+        check(r_valid && r_val == 10'd880, "stuck-low baseline: code 880 accepted");
+        prev = data; miso_stuck = 1;
+        convert(0);
+        check(!r_valid && r_err && data == prev, "MISO stuck low: frame_err, no data_valid, data kept");
+        convert(0);
+        check(!r_valid && r_err && data == prev, "MISO stuck low, second frame: still rejected");
+        miso_stuck = 0; convert(0);
+        check(r_valid && !r_err && r_val == 10'd880, "recovers after stuck-low released");
+        prev = data; miso_early_low = 1; convert(0);
+        check(!r_valid && r_err && data == prev, "MISO low until the null bit, real answer after: rejected");
+        miso_early_low = 0; convert(0);
+        check(r_valid && !r_err && r_val == 10'd880, "recovers after the early-low fault is removed");
+
+        // ---- 7d. No pull-up at all (line floats while the ADC is high-impedance): rejected - the safe direction
+        prev = data; no_pullup = 1; convert(0);
+        check(!r_valid && r_err && data == prev, "no pull-up: floating line is not trusted, frame_err");
+        no_pullup = 0; convert(0);
+        check(r_valid && !r_err && r_val == 10'd880, "pull-up restored: frames accepted again");
 
         // ---- 8. Datasheet timing seen by the model
         $display("INFO  shortest SCLK period seen: %0.1f ns (limit 740.7 ns)", u_adc.min_period);
