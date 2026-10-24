@@ -1,10 +1,10 @@
-"""Plot RTL-simulation traces written by tb_top (results/trace_*.csv). Time axis assumes a 100 MHz clock."""
+"""Plot RTL-simulation traces written by tb_top (results/trace_*.csv). Time axis assumes a 50 MHz clock."""
 import pandas as pd
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 def plot(csv, out, title, event_col=None, xlim=None):
-    d = pd.read_csv(csv); t = (d.cycle - d.cycle.iloc[0]) * 0.01   # us
+    d = pd.read_csv(csv); t = (d.cycle - d.cycle.iloc[0]) * 0.02   # us
     fig, ax = plt.subplots(4, 1, figsize=(9, 6.2), sharex=True)
     ax[0].step(t, d.force_code, color="#3D5A80", where="post"); ax[0].axhline(0xA00, color="#C8404F", ls="--", lw=1)
     ax[0].text(t.iloc[0], 0xA00 + 60, "FORCE_MAX", color="#C8404F", fontsize=9); ax[0].set_ylabel("force code")

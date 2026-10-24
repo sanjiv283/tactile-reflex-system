@@ -2,7 +2,7 @@
 // SCLK idles high, MISO is sampled on the falling edge, frame = 4 leading zeros + 12 data bits.
 // ponytail: format assumed from the AD7476A datasheet; confirm the bit alignment against the real part.
 module adc_interface #(
-    parameter CLK_DIV = 10,   // SCLK period in clk cycles (even); 100 MHz / 10 = 10 MHz
+    parameter CLK_DIV = 6,    // SCLK period in clk cycles (even); 50 MHz / 6 = 8.33 MHz (AD7476A max 20 MHz)
     parameter GAP     = 8     // CS high time between frames, in clk cycles
 ) (
     input  wire        clk,

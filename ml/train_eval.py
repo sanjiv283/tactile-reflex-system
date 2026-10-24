@@ -45,6 +45,7 @@ res["data"] = dict(source="SIMULATED", episodes_train=420, episodes_test=180, sa
                    timing_platform="development host (not the target processor)")
 os.makedirs("results", exist_ok=True)
 json.dump(res, open("results/ml_results.json", "w"), indent=2)
+import pickle; pickle.dump(clf, open("results/tree.pkl", "wb"))
 open("results/tree.txt", "w").write(export_text(clf, feature_names=FEATURES))
 
 cm = np.array(res["confusion"])

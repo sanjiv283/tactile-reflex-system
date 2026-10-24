@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 module tb_ai_control_interface;
-    reg clk = 0, rst_n = 0; always #5 clk = ~clk;
+    reg clk = 0, rst_n = 0; always #10 clk = ~clk;
     reg [15:0] g = 0; wire [1:0] cls; wire v;
     ai_control_interface #(.TIMEOUT(40)) dut (.clk(clk), .rst_n(rst_n), .gpio(g), .ai_class(cls), .ai_valid(v));
     integer pass = 0, fail = 0; reg [7:0] hb = 0;

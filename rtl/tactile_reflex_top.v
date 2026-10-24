@@ -1,9 +1,9 @@
 // tactile_reflex_top: PL top level. ADC -> conditioning -> fixed LUT -> Safety Governor -> PWM.
 // The AI path only enters through ai_control_interface and can only lower the command.
 module tactile_reflex_top #(
-    parameter CLK_DIV      = 10,
+    parameter CLK_DIV      = 6,
     parameter WD_CYCLES    = 2000,
-    parameter AI_TIMEOUT   = 1000000,
+    parameter AI_TIMEOUT   = 500000,
     parameter [11:0] FORCE_MAX = 12'hA00,
     parameter [11:0] FORCE_REL = 12'h900,
     parameter LUT_FILE     = "rtl/force_lut.mem"
@@ -27,6 +27,7 @@ module tactile_reflex_top #(
     output wire        ai_valid,
     // observation points (logic analyzer / testbench)
     output wire        dbg_sample_valid,
+    output wire [11:0] force_out,
     output wire [7:0]  cmd_out,
     output wire [3:0]  trip_reason,
     output wire        ai_overridden
@@ -72,6 +73,8 @@ module tactile_reflex_top #(
         .sensor_fault(sensor_fault), .estop_active(estop_active), .ai_valid(ai_valid), .ai_class(ai_class),
         .cmd_out(cmd_out), .safe_state(safe_state), .trip_reason(trip_reason), .ai_used(ai_used),
         .ai_overridden(ai_overridden));
+
+    assign force_out = lut_force;
 
     pwm_generator u_pwm (.clk(clk), .rst_n(rst_s), .duty(cmd_out), .kill(safe_state), .pwm_out(pwm_out));
 endmodule

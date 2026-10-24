@@ -1,4 +1,4 @@
-// pwm_generator: 12-bit free-running counter (100 MHz / 4096 = 24.4 kHz), 8-bit duty.
+// pwm_generator: 12-bit free-running counter (50 MHz / 4096 = 12.2 kHz), 8-bit duty.
 // Duty changes take effect at the period boundary; `kill` forces the output low on the next clock.
 module pwm_generator (
     input  wire       clk,

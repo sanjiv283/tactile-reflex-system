@@ -2,7 +2,7 @@
 // gpio[1:0] class, gpio[5:4] must equal ~class, gpio[6] PS says valid, gpio[15:8] heartbeat counter.
 // AI is valid only if: PS flag set, class/inverse agree, and the heartbeat changed within TIMEOUT clocks.
 module ai_control_interface #(
-    parameter TIMEOUT = 1000000      // clocks without a heartbeat change (10 ms at 100 MHz)
+    parameter TIMEOUT = 500000       // clocks without a heartbeat change (10 ms at 50 MHz)
 ) (
     input  wire        clk,
     input  wire        rst_n,

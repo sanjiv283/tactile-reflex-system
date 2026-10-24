@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 module tb_adc_interface;
-    reg clk = 0, rst_n = 0; always #5 clk = ~clk;
+    reg clk = 0, rst_n = 0; always #10 clk = ~clk;
     reg [11:0] value = 12'h000; reg corrupt = 0;
     wire cs_n, sclk, miso, sv, ferr; wire [11:0] sample;
     ad7476_model m (.cs_n(cs_n), .sclk(sclk), .value(value), .corrupt(corrupt), .miso(miso));
@@ -20,8 +20,8 @@ module tb_adc_interface;
             check(ferr === 1'b0, "no frame error");
         end
         wait_sv; t_prev = cyc; wait_sv; period = cyc - t_prev;
-        $display("INFO: ADC frame period = %0d clk cycles (%0d ns at 100 MHz)", period, period * 10);
-        check(period == 168, "frame period is 168 clocks");
+        $display("INFO: ADC frame period = %0d clk cycles (%0d ns at 50 MHz)", period, period * 20);
+        check(period == 104, "frame period is 104 clocks");
         corrupt = 1; wait_sv; wait_sv; check(ferr === 1'b1, "frame error flagged when leading bit is not zero");
         corrupt = 0; wait_sv; wait_sv; check(ferr === 1'b0, "frame error clears");
         rst_n = 0; repeat (3) @(posedge clk); check(cs_n === 1'b1 && sv === 1'b0, "reset returns to idle");

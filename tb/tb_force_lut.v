@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 module tb_force_lut;
-    reg clk = 0, rst_n = 0; always #5 clk = ~clk;
+    reg clk = 0, rst_n = 0; always #10 clk = ~clk;
     reg [11:0] fc = 0; reg fv = 0; wire [11:0] fco; wire [7:0] cmd; wire lv;
     force_lut dut (.clk(clk), .rst_n(rst_n), .force_code(fc), .force_valid(fv), .force_code_o(fco), .lut_cmd(cmd), .lut_valid(lv));
     integer pass = 0, fail = 0, i, prev, mono_ok;

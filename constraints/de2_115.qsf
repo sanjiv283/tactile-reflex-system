@@ -1,0 +1,31 @@
+# DE2-115 pin assignments for de2_115_top.  !!! NOT VERIFIED AGAINST THE BOARD !!!
+# The onboard pins below are from memory. Cross-check every line with the DE2-115 User Manual or the
+# DE2_115.qsf on the Terasic System CD before programming. GPIO header pins are intentionally left for you to fill in
+# (copy the GPIO[n] locations from that file for the header pins you wire).
+set_global_assignment -name DEVICE EP4CE115F29C7
+set_global_assignment -name TOP_LEVEL_ENTITY de2_115_top
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "3.3-V LVTTL"
+set_global_assignment -name SDC_FILE constraints/de2_115.sdc
+set_global_assignment -name VERILOG_FILE rtl/de2_115_top.v   ;# add every file in rtl/; keep the Quartus project in the repo root so rtl/force_lut.mem resolves
+
+set_location_assignment PIN_Y2   -to CLOCK_50
+set_location_assignment PIN_M23  -to KEY[0]
+set_location_assignment PIN_M21  -to KEY[1]
+set_location_assignment PIN_N21  -to KEY[2]
+set_location_assignment PIN_R24  -to KEY[3]
+set_location_assignment PIN_G19  -to LEDR[0]
+set_location_assignment PIN_F19  -to LEDR[1]
+set_location_assignment PIN_E19  -to LEDR[2]
+set_location_assignment PIN_F21  -to LEDR[3]
+set_location_assignment PIN_F18  -to LEDR[4]
+set_location_assignment PIN_E18  -to LEDR[5]
+set_location_assignment PIN_J19  -to LEDR[6]
+set_location_assignment PIN_H19  -to LEDR[7]
+set_location_assignment PIN_E21  -to LEDG[0]
+set_location_assignment PIN_E22  -to LEDG[1]
+set_location_assignment PIN_G12  -to UART_RXD
+set_location_assignment PIN_G9   -to UART_TXD
+
+# GPIO header (JP5), 3.3 V: fill in from the board manual
+# ADC_CS_N, ADC_SCLK, ADC_MISO, ESTOP_EXT_N, PWM_OUT, DBG_SAMPLE_VALID, DBG_SAFE_STATE
+# set_location_assignment PIN_xxx -to ADC_CS_N

@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 module tb_input_conditioning;
-    reg clk = 0, rst_n = 0; always #5 clk = ~clk;
+    reg clk = 0, rst_n = 0; always #10 clk = ~clk;
     reg [11:0] sample = 0; reg sv = 0, ferr = 0; wire [11:0] fc; wire fv, inv;
     input_conditioning dut (.clk(clk), .rst_n(rst_n), .sample(sample), .sample_valid(sv), .frame_err(ferr), .force_code(fc), .force_valid(fv), .adc_invalid(inv));
     integer pass = 0, fail = 0;

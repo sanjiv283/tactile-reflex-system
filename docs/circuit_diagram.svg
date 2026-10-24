@@ -30,17 +30,18 @@
 <text x="198" y="300" class="s">sensor node</text>
 
 <!-- PYNQ-Z2 -->
-<rect x="340" y="60" width="270" height="480" class="b"/><text x="475" y="85" text-anchor="middle" class="h">PYNQ-Z2 (Zynq-7020)</text>
-<text x="475" y="103" text-anchor="middle" class="s">PL: ADC, LUT, Governor, PWM  |  PS: AI/ML</text>
-<text x="352" y="128" class="s">PMODA</text>
+<rect x="340" y="60" width="270" height="400" class="b"/><text x="475" y="85" text-anchor="middle" class="h">DE2-115 (Cyclone IV E)</text>
+<text x="475" y="103" text-anchor="middle" class="s">FPGA: ADC, LUT, Governor, PWM</text>
+<text x="352" y="128" class="s">GPIO header (3.3 V)</text>
 <text x="352" y="145" class="t">CS</text><text x="352" y="165" class="t">MISO</text><text x="352" y="185" class="t">SCLK</text><text x="352" y="205" class="t">GND / 3V3</text>
-<text x="352" y="290" class="s">PMODB</text>
-<text x="352" y="330" class="t">E-stop in</text>
+<text x="352" y="290" class="s">GPIO header (3.3 V)</text>
+<text x="352" y="330" class="t">E-stop in (ext.)</text>
 <text x="598" y="330" text-anchor="end" class="t">PWM out</text>
 <text x="598" y="380" text-anchor="end" class="t">GND</text>
-<text x="475" y="505" text-anchor="middle" class="s">PS to PL: AXI GPIO (ai_class, valid, heartbeat)</text>
-<text x="475" y="522" text-anchor="middle" class="s">No wire carries AI data to the motor driver</text>
+<text x="475" y="440" text-anchor="middle" class="s">RS-232 (UART) to laptop: telemetry out, AI class in</text>
+<text x="475" y="456" text-anchor="middle" class="s">AI data never reaches the motor driver directly</text>
 
+<path d="M475 460V495" class="p"/><rect x="360" y="495" width="230" height="55" class="b"/><text x="475" y="520" text-anchor="middle" class="h">Laptop (Python)</text><text x="475" y="540" text-anchor="middle" class="s">decision tree, logging, plots</text>
 <!-- E-stop (NC) -->
 <text x="170" y="455" class="h">E-stop (NC)</text>
 <text x="170" y="487" class="s">3V3</text>
@@ -73,5 +74,5 @@
 <path d="M910 330H940V510H822" class="w"/><path d="M910 352H925V530H822" class="w"/>
 <path d="M870 510V518M862 518H878M862 522H878M870 522V530" class="w"/><text x="880" y="523" class="s">0.1 µF</text>
 
-<text x="40" y="590" class="s">Teal: PL-driven signals. Red: power and fail-safe lines. Pin names follow the Pmod AD1 and DRV8871 documentation; map them to FPGA pins from the PYNQ-Z2 constraints file.</text>
+<text x="40" y="590" class="s">Teal: PL-driven signals. Red: power and fail-safe lines. Map GPIO pins from the DE2-115 user manual.</text>
 </svg>

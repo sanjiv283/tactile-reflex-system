@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 // System testbench: full PL path with a behavioural ADC, scripted AI messages, e-stop and fault injection.
 module tb_top;
-    reg clk = 0, rst_n = 0; always #5 clk = ~clk;                       // 100 MHz
+    reg clk = 0, rst_n = 0; always #10 clk = ~clk;                       // 50 MHz
     reg [11:0] value = 12'h000; reg corrupt = 0;
     reg estop_n = 1, fault_clear = 0;
     reg [7:0] hb = 0; reg [8:0] hbc = 0; reg hb_run = 1; reg [1:0] ps_cls = 0; reg ps_valid = 1; reg inv_bad = 0;
@@ -72,7 +72,7 @@ module tb_top;
         check(safe === 1'b0 && cmd === 8'd64, "force back to normal: released and AI limit applies again");
         // ---- AI failure / invalid result ----
         hb_run = 0; repeat (3600) @(posedge clk); frames(1); check(ai_v === 1'b0 && cmd === lut(12'h400), "AI heartbeat lost: FPGA-only command");
-        hb_run = 1; settle; check(ai_v === 1'b1 && cmd === 8'd64, "AI heartbeat back: AI limit applies");
+        hb_run = 1; repeat (1200) @(posedge clk); settle; check(ai_v === 1'b1 && cmd === 8'd64, "AI heartbeat back: AI limit applies");
         inv_bad = 1; settle; check(ai_v === 1'b0 && cmd === lut(12'h400), "AI integrity check fails: AI ignored");
         inv_bad = 0; set_ai(2'd2, 0); settle; check(ai_v === 1'b0 && cmd === lut(12'h400), "PS marks result invalid: AI ignored");
         value = 12'hB00; set_ai(2'd2, 0); settle; check(safe === 1'b1, "AI invalid and excess force: safe state regardless");

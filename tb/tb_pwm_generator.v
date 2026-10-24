@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 module tb_pwm_generator;
-    reg clk = 0, rst_n = 0; always #5 clk = ~clk;
+    reg clk = 0, rst_n = 0; always #10 clk = ~clk;
     reg [7:0] duty = 0; reg kill = 0; wire pwm;
     pwm_generator dut (.clk(clk), .rst_n(rst_n), .duty(duty), .kill(kill), .pwm_out(pwm));
     integer pass = 0, fail = 0, hi, i, t;

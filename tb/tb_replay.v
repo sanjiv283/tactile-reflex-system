@@ -4,7 +4,7 @@
 //   1. force >= FORCE_MAX  ->  safe state and PWM low, whatever class the AI sent
 //   2. command never exceeds the LUT command (AI can only lower it)
 module tb_replay;
-    reg clk = 0, rst_n = 0; always #5 clk = ~clk;
+    reg clk = 0, rst_n = 0; always #10 clk = ~clk;
     reg [11:0] value = 12'h000;
     reg [7:0] hb = 0; reg [8:0] hbc = 0; reg [1:0] ps_cls = 0;
     wire [15:0] ai_gpio = {hb, 1'b0, 1'b1, ~ps_cls, 2'b00, ps_cls};

@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 module tb_fault_handler;
-    reg clk = 0, rst_n = 0; always #5 clk = ~clk;
+    reg clk = 0, rst_n = 0; always #10 clk = ~clk;
     reg sv = 0, inv = 0, es_n = 1, fcl = 0; wire sf, ea; wire [2:0] code;
     fault_handler #(.WD_CYCLES(50), .INVALID_LIMIT(4)) dut (.clk(clk), .rst_n(rst_n), .sample_valid(sv), .adc_invalid(inv), .estop_n(es_n), .fault_clear(fcl),
         .sensor_fault(sf), .estop_active(ea), .fault_code(code));

@@ -1,4 +1,4 @@
-INFO: ADC frame period = 168 clk cycles (1680 ns at 100 MHz)
+INFO: ADC frame period = 104 clk cycles (2080 ns at 50 MHz)
 TB tb_adc_interface: PASS 17 FAIL 0
 TB tb_input_conditioning: PASS 9 FAIL 0
 TB tb_force_lut: PASS 12 FAIL 0
@@ -6,10 +6,12 @@ TB tb_safety_governor: PASS 22 FAIL 0
 TB tb_pwm_generator: PASS 8 FAIL 0
 TB tb_fault_handler: PASS 13 FAIL 0
 TB tb_ai_control_interface: PASS 9 FAIL 0
+TB tb_uart_link: PASS 15 FAIL 0
 RESULT estop_to_pwm_low_cycles min=5 max=5 jitter=0
-RESULT adc_input_change_to_pwm_low_cycles min=165 max=320 jitter=155
+RESULT adc_input_change_to_pwm_low_cycles min=105 max=192 jitter=87
 RESULT sample_valid_to_pwm_low_cycles min=4 max=4 jitter=0
 TB tb_top: PASS 44 FAIL 0
+TB tb_de2_115_top: PASS 18 FAIL 0
 RESULT replay mode=ml_tree_ai vectors=1800 over_limit_samples=88 ai_not_class3_during_over_limit=2 safe_state_samples=89
 RESULT replay mode=ml_tree_ai violations: safe_state=0 cmd_above_lut=0
 TB tb_replay: PASS 2 FAIL 0
