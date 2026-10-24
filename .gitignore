@@ -1,0 +1,4 @@
+sim/build/
+sim/*.vvp
+__pycache__/
+*.pyc
