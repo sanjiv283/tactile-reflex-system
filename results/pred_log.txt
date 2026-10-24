@@ -1,0 +1,29 @@
+{
+ "chosen": {
+  "window_ms": 3,
+  "lookahead_windows": 2,
+  "min_delta_counts": 150,
+  "force_max": 2560,
+  "selected_on": "training episodes, false-early rate <= 10%"
+ },
+ "train": {
+  "crossing_episodes": 62,
+  "early_trip": 61,
+  "lead_ms_mean": 5.852459016393443,
+  "lead_ms_median": 6.0,
+  "noncrossing_episodes": 358,
+  "false_early": 35,
+  "false_early_rate": 0.09776536312849161
+ },
+ "test": {
+  "crossing_episodes": 25,
+  "early_trip": 25,
+  "lead_ms_mean": 5.72,
+  "lead_ms_median": 6.0,
+  "noncrossing_episodes": 155,
+  "false_early": 10,
+  "false_early_rate": 0.06451612903225806
+ },
+ "source": "SIMULATED"
+}
+vectors: 4720 expected trips: 50 K,MIN = 2 150

@@ -8,10 +8,10 @@ module tb_replay;
     reg [11:0] value = 12'h000;
     reg [7:0] hb = 0; reg [8:0] hbc = 0; reg [1:0] ps_cls = 0;
     wire [15:0] ai_gpio = {hb, 1'b0, 1'b1, ~ps_cls, 2'b00, ps_cls};
-    wire cs_n, sclk, miso, pwm, safe, sfault, estop_a, ai_v, dbg_sv, ai_ov; wire [7:0] cmd; wire [3:0] trip;
+    wire cs_n, sclk, miso, pwm, safe, sfault, estop_a, ai_v, dbg_sv, ai_ov; wire [7:0] cmd; wire [4:0] trip;
     reg fault_clear = 0;
     ad7476_model adc (.cs_n(cs_n), .sclk(sclk), .value(value), .corrupt(1'b0), .miso(miso));
-    tactile_reflex_top #(.AI_TIMEOUT(3000)) dut (.clk(clk), .rst_n(rst_n), .adc_cs_n(cs_n), .adc_sclk(sclk), .adc_miso(miso),
+    tactile_reflex_top #(.AI_TIMEOUT(3000), .PRED_EN(0)) dut (.clk(clk), .rst_n(rst_n), .adc_cs_n(cs_n), .adc_sclk(sclk), .adc_miso(miso),
         .estop_n(1'b1), .fault_clear(fault_clear), .ai_gpio(ai_gpio), .pwm_out(pwm), .safe_state(safe), .sensor_fault(sfault),
         .estop_active(estop_a), .ai_valid(ai_v), .dbg_sample_valid(dbg_sv), .cmd_out(cmd), .trip_reason(trip), .ai_overridden(ai_ov));
     reg [7:0] rom [0:255]; initial $readmemh("rtl/force_lut.mem", rom);

@@ -5,8 +5,9 @@ cd "$(dirname "$0")/.."
 mkdir -p results sim/build
 python3 tools/gen_lut.py
 python3 ml/train_eval.py > results/ml_log.txt
+python3 ml/pred_eval.py > results/pred_log.txt
 : > results/sim_log.txt
-for t in adc_interface input_conditioning force_lut safety_governor pwm_generator fault_handler ai_control_interface uart_link top de2_115_top; do
+for t in adc_interface input_conditioning force_lut safety_governor pwm_generator fault_handler ai_control_interface uart_link top de2_115_top pred_governor pred_system; do
   iverilog -g2005 -o sim/build/$t.vvp tb/ad7476_model.v tb/tb_$t.v rtl/*.v
   vvp sim/build/$t.vvp | grep -E "^(TB|FAIL|RESULT|INFO)" | tee -a results/sim_log.txt
 done

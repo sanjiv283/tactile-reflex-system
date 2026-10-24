@@ -4,7 +4,12 @@ module safety_governor #(
     parameter [11:0] FORCE_MAX = 12'hA00,  // trip threshold
     parameter [11:0] FORCE_REL = 12'h900,  // release threshold (hysteresis)
     parameter [7:0]  HOLD_CAP  = 8'd64,    // command cap when AI says class 2 (normal grip)
-    parameter [7:0]  EXCESS_CAP= 8'd24     // command cap when AI says class 3 (excessive force)
+    parameter [7:0]  EXCESS_CAP= 8'd24,    // command cap when AI says class 3 (excessive force)
+    // slope-predictive pre-limit (fixed-function, no ML): force + PRED_K * (rise per window) >= FORCE_MAX
+    parameter        PRED_EN   = 1,
+    parameter        PRED_WIN  = 150000,   // window in clocks (3 ms at 50 MHz)
+    parameter        PRED_K    = 2,        // look-ahead in windows
+    parameter [11:0] PRED_MIN_DELTA = 12'd150  // minimum rise per window that counts as a real ramp (noise guard)
 ) (
     input  wire        clk,
     input  wire        rst_n,
@@ -18,7 +23,7 @@ module safety_governor #(
     input  wire [1:0]  ai_class,
     output reg  [7:0]  cmd_out,
     output reg         safe_state,     // also gates the PWM output directly
-    output reg  [3:0]  trip_reason,    // [0] force max, [1] sensor fault, [2] e-stop, [3] invalid ADC
+    output reg  [4:0]  trip_reason,    // [0] force max, [1] sensor fault, [2] e-stop, [3] invalid ADC, [4] predicted over-force
     output reg         ai_used,
     output reg         ai_overridden   // hard limit tripped while the AI did not predict excess force
 );
@@ -27,13 +32,28 @@ module safety_governor #(
 
     reg        force_over_n;
     reg        trip;
+    reg        pred_trip;
+
+    // slope predictor: snapshot the force every PRED_WIN clocks, delta = rise over the last window
+    reg [31:0] wcnt;
+    reg [11:0] snap;
+    reg signed [12:0] delta;
+    reg        seeded;
+    integer    pv;
     reg [7:0]  ai_cmd;
 
     always @(posedge clk) begin
         if (!rst_n) begin
             armed <= 1'b0; force_over <= 1'b0; cmd_out <= 8'd0; safe_state <= 1'b1;
-            trip_reason <= 4'd0; ai_used <= 1'b0; ai_overridden <= 1'b0;
+            trip_reason <= 5'd0; ai_used <= 1'b0; ai_overridden <= 1'b0;
+            wcnt <= 32'd0; snap <= 12'd0; delta <= 13'sd0; seeded <= 1'b0;
         end else begin
+            if (wcnt >= PRED_WIN - 1) begin
+                wcnt <= 32'd0; snap <= force_code;
+                delta <= seeded ? ($signed({1'b0, force_code}) - $signed({1'b0, snap})) : 13'sd0;
+                seeded <= 1'b1;
+            end else wcnt <= wcnt + 32'd1;
+
             if (in_valid) armed <= 1'b1;
 
             force_over_n = force_over;
@@ -43,7 +63,10 @@ module safety_governor #(
             end
             force_over <= force_over_n;
 
-            trip = force_over_n | sensor_fault | estop_active | adc_invalid | ~armed;
+            pv = $signed({1'b0, force_code}) + PRED_K * delta;
+            pred_trip = (PRED_EN != 0) && (delta >= $signed({1'b0, PRED_MIN_DELTA})) && (pv >= FORCE_MAX);
+
+            trip = force_over_n | sensor_fault | estop_active | adc_invalid | ~armed | pred_trip;
 
             ai_cmd = lut_cmd;
             if (ai_valid) begin
@@ -56,7 +79,7 @@ module safety_governor #(
 
             cmd_out       <= trip ? 8'd0 : ai_cmd;
             safe_state    <= trip;
-            trip_reason   <= {adc_invalid, estop_active, sensor_fault, force_over_n};
+            trip_reason   <= {pred_trip, adc_invalid, estop_active, sensor_fault, force_over_n};
             ai_used       <= ai_valid & ~trip;
             ai_overridden <= trip & ai_valid & (ai_class != 2'd3);
         end

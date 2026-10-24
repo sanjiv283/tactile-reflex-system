@@ -45,14 +45,14 @@
     ]
   ],
   "inference_us_tree_walk": {
-    "mean": 5.596726,
-    "median": 5.255,
-    "p99": 12.813919999999998,
-    "max": 52.114,
+    "mean": 11.625862499999998,
+    "median": 11.0335,
+    "p99": 45.11111,
+    "max": 96.472,
     "n": 2000
   },
   "inference_us_sklearn_predict": {
-    "median": 60.685,
+    "median": 104.7165,
     "n": 300
   },
   "baseline_force_only": {

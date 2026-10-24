@@ -41,3 +41,13 @@ No ARM processor, so the AI/ML runs on a laptop over the board's RS-232 port (11
 
 Status: RTL simulated (all testbenches pass) and checked with a generic yosys synthesis run. Quartus synthesis, timing closure
 and board bring-up have not been run.
+
+## Design-level novelty (technical description, not a prior-art or patentability conclusion)
+1. AI is advisory only: it can lower the command, never raise it (checked by replaying an always-wrong AI through the RTL).
+2. Slope-predictive pre-limit in fixed-function hardware (`safety_governor`, `PRED_*` parameters, no ML):
+   trips when `force + K * (rise per window) >= FORCE_MAX`. `ml/pred_eval.py` is the integer reference model;
+   `tb/tb_pred_governor.v` compares the RTL with it on 4,720 vectors, `tb/tb_pred_system.v` runs it through the full path.
+   On the SIMULATED test episodes it trips about 5.7 ms before the hard limit and also trips early on 6.5% of episodes that never reach it.
+3. Self-checking AI link (packet checksum, class/inverse check, heartbeat timeout, automatic FPGA-only fallback).
+4. Instant PWM kill and a latched, fail-safe (normally-closed) e-stop on a 4 to 5 cycle path.
+5. T_FPGA, T_ML and jitter reported separately.

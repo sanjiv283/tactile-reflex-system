@@ -5,7 +5,9 @@ module de2_115_top #(
     parameter CLKS_PER_BIT = 434,      // 115200 baud at 50 MHz
     parameter TX_PERIOD    = 50000,    // telemetry every 1 ms
     parameter AI_TIMEOUT   = 500000,   // 10 ms without a valid AI packet -> AI ignored
-    parameter LUT_FILE     = "rtl/force_lut.mem"
+    parameter LUT_FILE     = "rtl/force_lut.mem",
+    parameter PRED_EN      = 1,
+    parameter PRED_WIN     = 150000
 ) (
     input  wire        CLOCK_50,
     input  wire [3:0]  KEY,
@@ -22,12 +24,12 @@ module de2_115_top #(
     output wire        DBG_SAFE_STATE
 );
     wire [15:0] ai_gpio;
-    wire [11:0] force_out; wire [7:0] cmd; wire [3:0] trip;
+    wire [11:0] force_out; wire [7:0] cmd; wire [4:0] trip;
     wire safe, sfault, estop_a, ai_v, ai_ov, pwm, dbg_sv;
 
     ai_uart_bridge #(.CLKS_PER_BIT(CLKS_PER_BIT)) u_bridge (.clk(CLOCK_50), .rst_n(KEY[3]), .rxd(UART_RXD), .ai_gpio(ai_gpio));
 
-    tactile_reflex_top #(.AI_TIMEOUT(AI_TIMEOUT), .LUT_FILE(LUT_FILE)) u_core (
+    tactile_reflex_top #(.AI_TIMEOUT(AI_TIMEOUT), .LUT_FILE(LUT_FILE), .PRED_EN(PRED_EN), .PRED_WIN(PRED_WIN)) u_core (
         .clk(CLOCK_50), .rst_n(KEY[3]), .adc_cs_n(ADC_CS_N), .adc_sclk(ADC_SCLK), .adc_miso(ADC_MISO),
         .estop_n(KEY[0] & ESTOP_EXT_N), .fault_clear(~KEY[1]), .ai_gpio(ai_gpio),
         .pwm_out(pwm), .safe_state(safe), .sensor_fault(sfault), .estop_active(estop_a), .ai_valid(ai_v),
@@ -37,6 +39,6 @@ module de2_115_top #(
         .force_code(force_out), .flags({safe, sfault, estop_a, ai_v}), .txd(UART_TXD));
 
     assign PWM_OUT = pwm; assign DBG_SAMPLE_VALID = dbg_sv; assign DBG_SAFE_STATE = safe;
-    assign LEDR = {10'd0, trip, ai_ov, estop_a, sfault, safe};   // [0] safe [1] sensor fault [2] e-stop [3] AI overridden [7:4] trip reason
+    assign LEDR = {9'd0, trip, ai_ov, estop_a, sfault, safe};    // [0] safe [1] sensor fault [2] e-stop [3] AI overridden [8:4] trip reason (8 = predicted)
     assign LEDG = {7'd0, pwm, ai_v};                              // [0] AI valid [1] PWM
 endmodule

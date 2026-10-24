@@ -2,8 +2,8 @@
 module tb_safety_governor;
     reg clk = 0, rst_n = 0; always #10 clk = ~clk;
     reg iv = 0; reg [11:0] fc = 0; reg [7:0] lc = 8'd104; reg ainv = 0, sf = 0, es = 0, aiv = 0; reg [1:0] aic = 0;
-    wire [7:0] cmd; wire safe, aiu, aio; wire [3:0] tr;
-    safety_governor dut (.clk(clk), .rst_n(rst_n), .in_valid(iv), .force_code(fc), .lut_cmd(lc), .adc_invalid(ainv), .sensor_fault(sf),
+    wire [7:0] cmd; wire safe, aiu, aio; wire [4:0] tr;
+    safety_governor #(.PRED_EN(0)) dut (.clk(clk), .rst_n(rst_n), .in_valid(iv), .force_code(fc), .lut_cmd(lc), .adc_invalid(ainv), .sensor_fault(sf),
         .estop_active(es), .ai_valid(aiv), .ai_class(aic), .cmd_out(cmd), .safe_state(safe), .trip_reason(tr), .ai_used(aiu), .ai_overridden(aio));
     integer pass = 0, fail = 0;
     task check(input c, input [255:0] msg); begin if (c) pass = pass + 1; else begin fail = fail + 1; $display("FAIL: %0s", msg); end end endtask

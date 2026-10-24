@@ -6,7 +6,11 @@ module tactile_reflex_top #(
     parameter AI_TIMEOUT   = 500000,
     parameter [11:0] FORCE_MAX = 12'hA00,
     parameter [11:0] FORCE_REL = 12'h900,
-    parameter LUT_FILE     = "rtl/force_lut.mem"
+    parameter LUT_FILE     = "rtl/force_lut.mem",
+    parameter PRED_EN      = 1,
+    parameter PRED_WIN     = 150000,
+    parameter PRED_K       = 2,
+    parameter [11:0] PRED_MIN_DELTA = 12'd150
 ) (
     input  wire        clk,
     input  wire        rst_n,
@@ -29,7 +33,7 @@ module tactile_reflex_top #(
     output wire        dbg_sample_valid,
     output wire [11:0] force_out,
     output wire [7:0]  cmd_out,
-    output wire [3:0]  trip_reason,
+    output wire [4:0]  trip_reason,
     output wire        ai_overridden
 );
     // reset: asynchronous assert, synchronous release
@@ -68,7 +72,7 @@ module tactile_reflex_top #(
     ai_control_interface #(.TIMEOUT(AI_TIMEOUT)) u_ai (.clk(clk), .rst_n(rst_s), .gpio(ai_gpio),
         .ai_class(ai_class), .ai_valid(ai_valid));
 
-    safety_governor #(.FORCE_MAX(FORCE_MAX), .FORCE_REL(FORCE_REL)) u_gov (.clk(clk), .rst_n(rst_s),
+    safety_governor #(.FORCE_MAX(FORCE_MAX), .FORCE_REL(FORCE_REL), .PRED_EN(PRED_EN), .PRED_WIN(PRED_WIN), .PRED_K(PRED_K), .PRED_MIN_DELTA(PRED_MIN_DELTA)) u_gov (.clk(clk), .rst_n(rst_s),
         .in_valid(lut_valid), .force_code(lut_force), .lut_cmd(lut_cmd), .adc_invalid(adc_invalid),
         .sensor_fault(sensor_fault), .estop_active(estop_active), .ai_valid(ai_valid), .ai_class(ai_class),
         .cmd_out(cmd_out), .safe_state(safe_state), .trip_reason(trip_reason), .ai_used(ai_used),

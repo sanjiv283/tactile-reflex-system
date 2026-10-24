@@ -12,6 +12,11 @@ RESULT adc_input_change_to_pwm_low_cycles min=105 max=192 jitter=87
 RESULT sample_valid_to_pwm_low_cycles min=4 max=4 jitter=0
 TB tb_top: PASS 44 FAIL 0
 TB tb_de2_115_top: PASS 18 FAIL 0
+RESULT pred_rtl_vs_model vectors=4720 expected_trips=50 mismatches=0
+TB tb_pred_governor: PASS 1 FAIL 0
+RESULT pred_system fast_ramp(+200/window): predictive trips at ADC value 2168 (0x878), hard-limit-only trips at 2568 (0xa08), FORCE_MAX=2560
+RESULT pred_system slow_ramp(+60/window): predictive trips at 2568, hard-limit-only trips at 2568
+TB tb_pred_system: PASS 7 FAIL 0
 RESULT replay mode=ml_tree_ai vectors=1800 over_limit_samples=88 ai_not_class3_during_over_limit=2 safe_state_samples=89
 RESULT replay mode=ml_tree_ai violations: safe_state=0 cmd_above_lut=0
 TB tb_replay: PASS 2 FAIL 0
