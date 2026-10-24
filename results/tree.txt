@@ -1,0 +1,46 @@
+|--- contact_duration <= 4.50
+|   |--- force <= 26.51
+|   |   |--- force <= 21.73
+|   |   |   |--- force <= 17.31
+|   |   |   |   |--- class: 0
+|   |   |   |--- force >  17.31
+|   |   |   |   |--- class: 0
+|   |   |--- force >  21.73
+|   |   |   |--- moving_avg8 <= 11.78
+|   |   |   |   |--- class: 0
+|   |   |   |--- moving_avg8 >  11.78
+|   |   |   |   |--- class: 0
+|   |--- force >  26.51
+|   |   |--- delta1 <= 24.55
+|   |   |   |--- delta5 <= -9.02
+|   |   |   |   |--- class: 0
+|   |   |   |--- delta5 >  -9.02
+|   |   |   |   |--- class: 0
+|   |   |--- delta1 >  24.55
+|   |   |   |--- delta1 <= 29.36
+|   |   |   |   |--- class: 0
+|   |   |   |--- delta1 >  29.36
+|   |   |   |   |--- class: 0
+|--- contact_duration >  4.50
+|   |--- force <= 629.77
+|   |   |--- delta5 <= -30.99
+|   |   |   |--- contact_duration <= 122.50
+|   |   |   |   |--- class: 1
+|   |   |   |--- contact_duration >  122.50
+|   |   |   |   |--- class: 0
+|   |   |--- delta5 >  -30.99
+|   |   |   |--- delta5 <= 80.72
+|   |   |   |   |--- class: 1
+|   |   |   |--- delta5 >  80.72
+|   |   |   |   |--- class: 2
+|   |--- force >  629.77
+|   |   |--- force <= 1842.58
+|   |   |   |--- delta1 <= -34.14
+|   |   |   |   |--- class: 0
+|   |   |   |--- delta1 >  -34.14
+|   |   |   |   |--- class: 2
+|   |   |--- force >  1842.58
+|   |   |   |--- delta1 <= -48.42
+|   |   |   |   |--- class: 0
+|   |   |   |--- delta1 >  -48.42
+|   |   |   |   |--- class: 3
