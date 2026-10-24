@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" font-family="Calibri, Arial, sans-serif" font-size="14">
+<rect width="960" height="620" fill="#fff"/>
+<defs><style>
+.b{fill:#EAF1F1;stroke:#0F3D3E;stroke-width:2}.h{font-weight:bold;fill:#0F3D3E;font-size:16px}
+.w{stroke:#1B2430;stroke-width:2;fill:none}.p{stroke:#0E7C7B;stroke-width:2.5;fill:none}
+.r{stroke:#C8404F;stroke-width:2.5;fill:none}.t{fill:#1B2430}.s{fill:#5F7380;font-size:12px}
+.c{fill:#fff;stroke:#1B2430;stroke-width:2}.n{fill:#1B2430}
+</style>
+<g id="gnd"><path d="M0 0V8M-10 8H10M-6 12H6M-2 16H2" class="w"/></g></defs>
+<text x="480" y="28" text-anchor="middle" class="h" font-size="20">Tactile Reflex System: wiring diagram (prototype)</text>
+
+<!-- Pmod AD1 -->
+<rect x="40" y="60" width="170" height="170" class="b"/><text x="125" y="85" text-anchor="middle" class="h">Pmod AD1</text>
+<text x="125" y="102" text-anchor="middle" class="s">AD7476A, 12-bit SPI</text>
+<text x="200" y="140" text-anchor="end" class="t">CS</text><text x="200" y="160" text-anchor="end" class="t">D0 (MISO)</text>
+<text x="200" y="180" text-anchor="end" class="t">SCLK</text><text x="200" y="200" text-anchor="end" class="t">GND / VCC</text>
+<text x="190" y="222" text-anchor="middle" class="t">A1 in</text>
+
+<!-- PMODA wires -->
+<path d="M210 140H340M210 160H340M210 180H340" class="p"/><path d="M210 200H340" class="w"/>
+
+<!-- FSR divider -->
+<text x="40" y="262" class="h">FSR divider</text>
+<text x="125" y="285" text-anchor="middle" class="s">3V3</text><path d="M125 290V300" class="w"/>
+<rect x="110" y="300" width="30" height="50" class="c"/><text x="150" y="330" class="t">FSR 402</text>
+<path d="M125 350V420" class="w"/><circle cx="125" cy="375" r="4" class="n"/>
+<rect x="110" y="390" width="30" height="40" class="c"/><text x="150" y="415" class="t">10 kΩ</text>
+<path d="M125 430V440" class="w"/><use href="#gnd" x="125" y="440"/>
+<path d="M125 375H190V230" class="w"/><circle cx="190" cy="230" r="4" class="n"/>
+<text x="198" y="300" class="s">sensor node</text>
+
+<!-- PYNQ-Z2 -->
+<rect x="340" y="60" width="270" height="480" class="b"/><text x="475" y="85" text-anchor="middle" class="h">PYNQ-Z2 (Zynq-7020)</text>
+<text x="475" y="103" text-anchor="middle" class="s">PL: ADC, LUT, Governor, PWM  |  PS: AI/ML</text>
+<text x="352" y="128" class="s">PMODA</text>
+<text x="352" y="145" class="t">CS</text><text x="352" y="165" class="t">MISO</text><text x="352" y="185" class="t">SCLK</text><text x="352" y="205" class="t">GND / 3V3</text>
+<text x="352" y="290" class="s">PMODB</text>
+<text x="352" y="330" class="t">E-stop in</text>
+<text x="598" y="330" text-anchor="end" class="t">PWM out</text>
+<text x="598" y="380" text-anchor="end" class="t">GND</text>
+<text x="475" y="505" text-anchor="middle" class="s">PS to PL: AXI GPIO (ai_class, valid, heartbeat)</text>
+<text x="475" y="522" text-anchor="middle" class="s">No wire carries AI data to the motor driver</text>
+
+<!-- E-stop (NC) -->
+<text x="170" y="455" class="h">E-stop (NC)</text>
+<text x="170" y="487" class="s">3V3</text>
+<path d="M200 490H215" class="w"/><circle cx="218" cy="490" r="3" class="n"/><path d="M220 490L250 478" class="w"/><circle cx="256" cy="490" r="3" class="n"/><path d="M259 490H300" class="w"/>
+<circle cx="300" cy="490" r="4" class="n"/><path d="M300 490V330H340" class="r"/>
+<path d="M300 490V505" class="w"/><rect x="288" y="505" width="24" height="34" class="c"/><path d="M300 539V545" class="w"/><use href="#gnd" x="300" y="545"/>
+<text x="282" y="527" text-anchor="end" class="s">10 kΩ pull-down</text>
+
+<!-- Motor power -->
+<text x="700" y="70" class="h">Motor power</text>
+<rect x="700" y="82" width="140" height="44" class="c"/><text x="770" y="109" text-anchor="middle" class="t">12 V 3 A supply</text>
+<path d="M805 126V150" class="r"/><rect x="793" y="150" width="24" height="36" class="c"/><text x="825" y="173" class="s">2 A fuse</text>
+<path d="M805 186V270" class="r"/><text x="815" y="250" class="s">+12 V</text>
+<path d="M730 126V135" class="w"/><use href="#gnd" x="730" y="135"/><text x="715" y="150" text-anchor="end" class="s">supply GND</text>
+
+<!-- DRV8871 -->
+<rect x="700" y="270" width="210" height="130" class="b"/><text x="805" y="292" text-anchor="middle" class="h">DRV8871</text>
+<text x="712" y="330" class="t">IN1 (PWM)</text><text x="712" y="352" class="t">IN2</text><text x="712" y="380" class="t">GND</text>
+<text x="800" y="312" class="s">VM</text><text x="898" y="330" text-anchor="end" class="t">OUT1</text><text x="898" y="352" text-anchor="end" class="t">OUT2</text>
+<path d="M610 325H700" class="p"/>
+<path d="M700 352H690V375H700" class="w"/><use href="#gnd" x="690" y="375"/>
+<text x="618" y="318" class="s">3.3 V logic</text>
+<path d="M610 375H640" class="w"/><use href="#gnd" x="640" y="375"/>
+<text x="640" y="418" class="s">1000 µF across VM and GND, at the driver</text>
+<text x="700" y="436" class="s">IN2 tied low: one drive direction.</text><text x="700" y="452" class="s">All grounds are common.</text>
+
+<!-- Motor -->
+<circle cx="790" cy="520" r="32" class="c"/><text x="790" y="526" text-anchor="middle" class="h">M</text>
+<text x="700" y="575" class="s">12 V geared DC motor, stall current under 2 A</text>
+<path d="M910 330H940V510H822" class="w"/><path d="M910 352H925V530H822" class="w"/>
+<path d="M870 510V518M862 518H878M862 522H878M870 522V530" class="w"/><text x="880" y="523" class="s">0.1 µF</text>
+
+<text x="40" y="590" class="s">Teal: PL-driven signals. Red: power and fail-safe lines. Pin names follow the Pmod AD1 and DRV8871 documentation; map them to FPGA pins from the PYNQ-Z2 constraints file.</text>
+</svg>
