@@ -23,6 +23,6 @@ module tb_pred_governor;
         end
         $display("RESULT pred_rtl_vs_model vectors=%0d expected_trips=%0d mismatches=%0d", n, trips, bad);
         pass = (bad == 0) ? 1 : 0; fail = bad;
-        $display("TB tb_pred_governor: PASS %0d FAIL %0d", pass, fail); $finish;
+        $display("TB tb_pred_governor: PASS %0d FAIL %0d VECTORS %0d NOTE RTL slope predictor vs Python reference; ONE aggregate assertion (zero mismatches over all vectors), not one per vector", pass, fail, n); $finish;
     end
 endmodule

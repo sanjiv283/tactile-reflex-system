@@ -1,0 +1,1 @@
+RTLX,single_invalid_frame,safe_seen=1,trip_bits_or=8,sensor_fault_ever=0,final_safe=0,final_cmd=157,safe_on_to_off_cycles=104

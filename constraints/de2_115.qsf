@@ -26,6 +26,9 @@ set_location_assignment PIN_E22  -to LEDG[1]
 set_location_assignment PIN_G12  -to UART_RXD
 set_location_assignment PIN_G9   -to UART_TXD
 
+# STATUS (tools/check_pins.py): NOT VERIFIED. 24 of 41 port bits (7 GPIO signals + unused LEDR/LEDG bits) have NO location here, so Quartus
+# would place them on arbitrary pins. Do not program a board from this file. Fix: python3 tools/check_pins.py --reference <Terasic DE2_115.qsf>
+#   --emit constraints/de2_115_from_reference.qsf   (every pin copied from Terasic's file; GPIO choice in constraints/gpio_map.txt).
 # GPIO header (JP5), 3.3 V: fill in from the board manual
 # ADC_CS_N, ADC_SCLK, ADC_MISO, ESTOP_EXT_N, PWM_OUT, DBG_SAMPLE_VALID, DBG_SAFE_STATE
 # set_location_assignment PIN_xxx -to ADC_CS_N

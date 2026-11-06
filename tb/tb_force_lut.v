@@ -23,6 +23,6 @@ module tb_force_lut;
         check(mono_ok == 1, "transfer function never increases with force");
         look(12'h123); check(fco == 12'h123, "force_code passes through aligned with the command");
         rst_n = 0; @(posedge clk); @(posedge clk); check(cmd == 0 && lv == 0, "reset clears outputs");
-        $display("TB tb_force_lut: PASS %0d FAIL %0d", pass, fail); $finish;
+        $display("TB tb_force_lut: PASS %0d FAIL %0d VECTORS 0 NOTE directed assertions only", pass, fail); $finish;
     end
 endmodule

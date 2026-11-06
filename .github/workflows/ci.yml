@@ -1,0 +1,51 @@
+# Continuous integration. NOT YET RUN on GitHub (nothing was pushed from the development environment); the same commands pass locally.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      mutation:
+        description: "also run the full mutation campaign (about 15 minutes)"
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install simulators
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends iverilog yosys
+      - name: Install Python dependencies (pinned)
+        run: python3 -m pip install -r requirements-lock.txt
+      - name: Full verification (LUT, ML, CDC, formal, lint/synth, unit tests, regression, plots)
+        run: sh sim/run_all.sh
+      - name: Derived artifacts reproduce byte-for-byte
+        run: python3 tools/check_artifacts.py
+      - name: Experiment and validation pipelines reproduce on the current RTL
+        run: sh tools/check_experiments.sh && sh tools/check_validation.sh
+      - name: Hazard analysis references are real
+        run: python3 tools/check_traceability.py
+      - name: Working tree is clean (no generated file differs from the committed one)
+        run: git diff --exit-code -- rtl tb results/ml_results.json results/pred_results.json
+  mutation:
+    if: github.event_name == 'workflow_dispatch' && inputs.mutation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends iverilog yosys
+      - run: python3 -m pip install -r requirements-lock.txt
+      - run: python3 tools/mutation_test.py --jobs 4
+      - run: python3 tools/mutation_audit.py
+      - run: python3 tools/cosim_negative_controls.py

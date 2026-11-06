@@ -25,6 +25,8 @@ module tb_top;
     task clear_faults; begin @(negedge clk); fault_clear = 1; repeat (8) @(negedge clk); fault_clear = 0; repeat (4) @(negedge clk); end endtask
     task set_ai(input [1:0] c, input v); begin ps_cls = c; ps_valid = v; end endtask
     function [7:0] lut(input [11:0] code); lut = rom[code >> 4]; endfunction
+    safety_monitor #(.NAME("tb_top")) smon (.clk(clk), .rst_s(dut.rst_s), .safe_state(dut.safe_state), .pwm_out(dut.pwm_out), .cmd_out(dut.cmd_out), .lut_cmd(dut.lut_cmd),
+        .lut_valid(dut.lut_valid), .lut_force(dut.lut_force), .estop_active(dut.estop_active), .sensor_fault(dut.sensor_fault), .adc_invalid(dut.adc_invalid));
     task duty_count(output integer h); integer n; begin h = 0; for (n = 0; n < 4096; n = n + 1) begin @(posedge clk); if (pwm) h = h + 1; end end endtask
 
     // traces for the report figures
@@ -84,6 +86,9 @@ module tb_top;
         clear_faults; settle; check(safe === 1'b0 && sfault === 1'b0, "operator clear releases sensor fault");
         value = 12'hFFF; settle; check(safe === 1'b1 && trip[3] === 1'b1, "railed ADC value (0xFFF): safe state");
         value = 12'h400; frames(2); clear_faults; settle; check(safe === 1'b0, "recovers after railed value removed and fault cleared");
+        value = 12'hFEF; settle; check(trip[3] === 1'b0 && trip[0] === 1'b1, "0xFEF is a valid (over-limit) reading: force-limit reason, NOT invalid-ADC");
+        value = 12'hFF0; settle; check(trip[3] === 1'b1, "0xFF0 is the rail threshold: invalid-ADC reason");
+        value = 12'h400; frames(2); clear_faults; settle; check(safe === 1'b0, "recovers after the rail-threshold test");
         force dut.force_valid = 1'b0; repeat (2300) @(posedge clk); #1 check(sfault === 1'b1 && safe === 1'b1, "ADC watchdog: no samples -> sensor fault");
         release dut.force_valid; frames(3); clear_faults; settle; check(safe === 1'b0, "recovers after samples resume");
         set_ai(2'd0, 1);
@@ -122,7 +127,7 @@ module tb_top;
         value = 12'h100; settle_pwm; @(posedge pwm); rst_n = 0; repeat (3) @(posedge clk); #1 check(pwm === 1'b0 && safe === 1'b1, "reset mid-operation: PWM low, safe state");
         rst_n = 1; repeat (4) @(posedge clk); frames(3); #1 check(safe === 1'b1 && sfault === 1'b0, "after reset: safe until operator clear, faults cleared");
         clear_faults; settle; check(safe === 1'b0, "operation resumes after clear");
-        $display("TB tb_top: PASS %0d FAIL %0d", pass, fail); $fclose(fd1); $fclose(fd2); $finish;
+        check(smon.viol == 0, "safety_monitor: no invariant violation in any scenario"); $display("TB tb_top: PASS %0d FAIL %0d VECTORS 0 NOTE directed system scenarios", pass, fail); $fclose(fd1); $fclose(fd2); $finish;
     end
     initial begin #60_000_000; $display("TB tb_top: TIMEOUT"); $finish; end
 endmodule

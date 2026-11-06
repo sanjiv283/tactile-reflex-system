@@ -17,6 +17,6 @@ module tb_ai_control_interface;
         repeat (60) @(negedge clk); check(v == 0, "heartbeat stalls -> invalid (AI failure)");
         send(2'd2, 1, 1); check(v == 1, "heartbeat resumes -> valid");
         rst_n = 0; @(posedge clk); @(posedge clk); #1 check(v == 0, "reset -> invalid");
-        $display("TB tb_ai_control_interface: PASS %0d FAIL %0d", pass, fail); $finish;
+        $display("TB tb_ai_control_interface: PASS %0d FAIL %0d VECTORS 0 NOTE directed assertions only", pass, fail); $finish;
     end
 endmodule

@@ -1,5 +1,5 @@
 """Train and evaluate the lightweight model on the SIMULATED dataset. Writes results/ and tb/replay_vectors.mem."""
-import json, time, sys, os
+import argparse, json, time, sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier, export_text
@@ -22,6 +22,10 @@ def evaluate(model, Xt):
 pred, res = evaluate(clf, X[te])
 _, res_base = evaluate(base, X[te][:, :1])
 
+ap = argparse.ArgumentParser(description=__doc__)
+ap.add_argument("--timing", action="store_true", help="re-measure inference timing on THIS machine (default: keep the timing already recorded in results/ml_results.json)")
+args = ap.parse_args()
+OLD = json.load(open("results/ml_results.json")) if os.path.exists("results/ml_results.json") else {}
 # inference time: single-sample prediction by walking the fitted tree in pure Python (what the PS would run)
 T = clf.tree_
 def walk(x):
@@ -31,21 +35,27 @@ def walk(x):
     return int(np.argmax(T.value[n]))
 assert all(walk(x) == p for x, p in zip(X[te][:200], pred[:200]))
 xs = X[te][:2000]; times = []
+TIMING_KEYS = ('inference_us_tree_walk', 'inference_us_sklearn_predict')
+keep_old = (not args.timing) and all(k in OLD for k in TIMING_KEYS)
 for x in xs:
     t = time.perf_counter_ns(); walk(x); times.append(time.perf_counter_ns() - t)
 t_sk = []
 for x in xs[:300]:
     t = time.perf_counter_ns(); clf.predict(x.reshape(1, -1)); t_sk.append(time.perf_counter_ns() - t)
 us = np.array(times) / 1e3
-res["inference_us_tree_walk"] = dict(mean=float(us.mean()), median=float(np.median(us)), p99=float(np.percentile(us, 99)), max=float(us.max()), n=len(us))
-res["inference_us_sklearn_predict"] = dict(median=float(np.median(t_sk) / 1e3), n=len(t_sk))
+if keep_old:
+    for k in TIMING_KEYS: res[k] = OLD[k]
+else:
+    res["inference_us_tree_walk"] = dict(mean=float(us.mean()), median=float(np.median(us)), p99=float(np.percentile(us, 99)), max=float(us.max()), n=len(us))
+    res["inference_us_sklearn_predict"] = dict(median=float(np.median(t_sk) / 1e3), n=len(t_sk))
 res["baseline_force_only"] = res_base
 res["data"] = dict(source="SIMULATED", episodes_train=420, episodes_test=180, samples_train=int(tr.sum()), samples_test=int(te.sum()),
                    features=FEATURES, tree_depth=int(clf.get_depth()), leaves=int(clf.get_n_leaves()),
                    timing_platform="development host (not the target processor)")
 os.makedirs("results", exist_ok=True)
 json.dump(res, open("results/ml_results.json", "w"), indent=2)
-import pickle; pickle.dump(clf, open("results/tree.pkl", "wb"))
+from tree_model import export_tree
+with open("results/tree.json", "w") as _fh: json.dump(export_tree(clf, FEATURES, clf.classes_), _fh, indent=1)   # safe format (no pickle)
 open("results/tree.txt", "w").write(export_text(clf, feature_names=FEATURES))
 
 cm = np.array(res["confusion"])

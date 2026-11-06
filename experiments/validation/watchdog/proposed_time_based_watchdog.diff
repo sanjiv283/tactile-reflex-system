@@ -1,0 +1,62 @@
+--- experiments/wokwi/reflex_model.h	2026-10-28 15:17:42.587072630 +0000
++++ experiments/wokwi/reflex_model.h	2026-10-28 16:00:00.694802701 +0000
+@@ -15,12 +15,17 @@
+ // Model-only timing parameters (NOT the RTL values: RTL uses 150000-clk window, 2000-clk watchdog, 104-clk ADC frame)
+ #define SAMPLE_US       500
+ #define PRED_WIN_STEPS  6      // 3 ms window / SAMPLE_US, same 3 ms as RTL PRED_WIN at 50 MHz
+-#define WD_STEPS        2      // consecutive missing samples -> sensor fault
++#define WD_CLK          2000   // fault_handler.v WD_CYCLES: clocks without a valid sample -> sensor fault
++#define FRAME_CLK       104    // adc_interface.v frame period: 16 SCLK x CLK_DIV 6 + GAP 8
++#ifndef SLOT_CLK
++#define SLOT_CLK        (SAMPLE_US * 50)   // clocks of silence one absent slot stands for (50 MHz clk)
++#endif
+ 
+ typedef struct { uint16_t code; uint8_t present, frame_err, estop_n, fault_clear; } rm_in;
+ typedef struct { uint8_t safe, cmd, trip; } rm_out;   // trip bits as RTL: 0 force, 1 sensor fault, 2 e-stop, 3 invalid ADC, 4 predicted
+ typedef struct {
+-    uint8_t armed, over, sensor_fault, estop, invalid, seeded, bad, wd, wcnt;
++    uint8_t armed, over, sensor_fault, estop, invalid, seeded, bad, wcnt;
++    uint32_t gap;
+     uint16_t code, snap; int16_t delta;
+ } rm_state;
+ 
+@@ -28,20 +33,23 @@
+ 
+ // Reset state mirrors the RTL: e-stop reads "pressed" during reset, so the latch needs an operator fault_clear.
+ static inline void rm_reset(rm_state *s) {
+-    s->armed = s->over = s->sensor_fault = s->invalid = s->seeded = s->bad = s->wd = s->wcnt = 0;
++    s->armed = s->over = s->sensor_fault = s->invalid = s->seeded = s->bad = s->wcnt = 0; s->gap = 0;
+     s->estop = 1; s->code = s->snap = 0; s->delta = 0;
+ }
+ 
+ static inline rm_out rm_step(rm_state *s, rm_in in) {
+     rm_out o;
+     // fault_handler + input_conditioning
+-    if (in.present) s->wd = 0; else if (s->wd < WD_STEPS) s->wd++;
++    // watchdog in clocks: a present sample is FRAME_CLK after the previous one; an absent slot adds SLOT_CLK of silence
++    int wd_hit;
++    if (in.present) { wd_hit = s->gap + FRAME_CLK >= WD_CLK; s->gap = 0; }
++    else { if (s->gap < WD_CLK) s->gap += SLOT_CLK; wd_hit = s->gap >= WD_CLK; }
+     if (in.present) {
+         s->code = in.code;
+         s->invalid = in.frame_err || in.code >= RAIL_HI;
+         if (!s->invalid) s->bad = 0; else if (s->bad < INVALID_LIMIT) s->bad++;
+     }
+-    if (s->wd >= WD_STEPS || s->bad >= INVALID_LIMIT) s->sensor_fault = 1; else if (in.fault_clear) s->sensor_fault = 0;
++    if (wd_hit || s->bad >= INVALID_LIMIT) s->sensor_fault = 1; else if (in.fault_clear) s->sensor_fault = 0;
+     if (!in.estop_n) s->estop = 1; else if (in.fault_clear) s->estop = 0;
+     // safety_governor: slope window, hysteresis, trip
+     if (in.present) {
+--- experiments/wokwi/scenarios.h	2026-10-28 15:18:13.940541069 +0000
++++ experiments/wokwi/scenarios.h	2026-10-28 16:00:00.694896645 +0000
+@@ -71,8 +71,8 @@
+ 
+ static inline void run_all_scenarios(emit_fn emit) {
+     char b[200]; unsigned i;
+-    snprintf(b, sizeof b, "PARAM,FORCE_MAX=%d,FORCE_REL=%d,PRED_K=%d,PRED_MIN_DELTA=%d,RAIL_HI=%d,INVALID_LIMIT=%d,SAMPLE_US=%d,PRED_WIN_STEPS=%d,WD_STEPS=%d",
+-             FORCE_MAX, FORCE_REL, PRED_K, PRED_MIN_DELTA, RAIL_HI, INVALID_LIMIT, SAMPLE_US, PRED_WIN_STEPS, WD_STEPS); emit(b);
++    snprintf(b, sizeof b, "PARAM,FORCE_MAX=%d,FORCE_REL=%d,PRED_K=%d,PRED_MIN_DELTA=%d,RAIL_HI=%d,INVALID_LIMIT=%d,SAMPLE_US=%d,PRED_WIN_STEPS=%d,WD_CLK=%d,FRAME_CLK=%d,SLOT_CLK=%d",
++             FORCE_MAX, FORCE_REL, PRED_K, PRED_MIN_DELTA, RAIL_HI, INVALID_LIMIT, SAMPLE_US, PRED_WIN_STEPS, WD_CLK, FRAME_CLK, (int)(SLOT_CLK)); emit(b);
+     for (i = 0; i < NSCENS; i++) {
+         const scen_t *sc = &SCENS[i]; rm_state st; bl_state bl = {0}; rm_out o = {0,0,0}, bo = {0,0,0};
+         int psafe = 1, pbsafe = 0, seen_over = 0, seen_safe = 0, bseen_safe = 0; uint16_t lfsr = 0xACE1u;

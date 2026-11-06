@@ -25,6 +25,6 @@ module tb_adc_interface;
         corrupt = 1; wait_sv; wait_sv; check(ferr === 1'b1, "frame error flagged when leading bit is not zero");
         corrupt = 0; wait_sv; wait_sv; check(ferr === 1'b0, "frame error clears");
         rst_n = 0; repeat (3) @(posedge clk); check(cs_n === 1'b1 && sv === 1'b0, "reset returns to idle");
-        $display("TB tb_adc_interface: PASS %0d FAIL %0d", pass, fail); $finish;
+        $display("TB tb_adc_interface: PASS %0d FAIL %0d VECTORS 0 NOTE directed assertions only", pass, fail); $finish;
     end
 endmodule

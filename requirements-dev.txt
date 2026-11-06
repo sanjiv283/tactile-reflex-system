@@ -1,0 +1,3 @@
+# Everything needed to run the full test-suite locally and in CI (python3 -m unittest discover -s tests).
+-r requirements.txt
+-r requirements-host.txt

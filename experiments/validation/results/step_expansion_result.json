@@ -1,0 +1,23 @@
+{
+ "frames_per_step": 240,
+ "steps_compared": 839,
+ "mismatches": 0,
+ "per_scenario": {
+  "S01_normal": 0,
+  "S02_slow_crossing": 0,
+  "S03a_2558": 0,
+  "S03b_2559": 0,
+  "S03c_2560": 0,
+  "S03d_2561": 0,
+  "S03e_jump_2559": 0,
+  "S04_hysteresis": 0,
+  "S05_estop": 0,
+  "S06a_one_invalid": 0,
+  "S06b_persist_invalid": 0,
+  "S06c_dropout": 0,
+  "S06d_rail": 0,
+  "S07_noisy_crossing": 0,
+  "S08_fast_ramp": 0
+ },
+ "detail": []
+}

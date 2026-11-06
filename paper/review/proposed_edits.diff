@@ -1,0 +1,112 @@
+--- paper/paper.md	2026-10-28 15:24:30.980408773 +0000
++++ paper/review/paper_proposed.md	2026-10-28 15:40:18.812311097 +0000
+@@ -3,18 +3,19 @@
+ *DRAFT. Every number below comes from `experiments/results/` produced by `experiments/run_experiments.sh` (commands and exit codes in the final report). Items marked **[TODO]** are not done or not verified.*
+ 
+ ## Abstract
+-We describe a deterministic tactile reflex controller for a robotic gripper and evaluate it in simulation only. The design (FPGA RTL, AD7476A-class SPI ADC input, PWM output intended for a DRV8871 H-bridge) enforces a force limit with hysteresis, a slope-based predictive pre-limit, a latched e-stop, and sensor-fault handling that forces the drive inhibited. We run 15 scripted scenarios (159 checks) through (a) a small software model of the documented behaviour and (b) the real RTL under Icarus Verilog on identical stimulus, and compare both with a threshold-only baseline. The model met 159/159 checks and the RTL 157/159; the two RTL misses are a stimulus-granularity artefact, not a controller fault (Section 6.3). The baseline met 93/159 by design. On a ramp of ~277 counts per 3 ms window the predictive pre-limit tripped 12 sample slots (6 ms of simulated time) before the hard limit in both model and RTL. RTL force-to-inhibit latency was 100–189 clock cycles (2.0–3.8 µs at 50 MHz), dominated by waiting for the next ADC frame. No physical hardware was used; no real-world safety claim is made.
++We describe a deterministic tactile reflex controller for a robotic gripper and evaluate it in simulation only. The design (FPGA RTL, AD7476A-class SPI ADC input, PWM output intended for a DRV8871 H-bridge) enforces a force limit with hysteresis, a slope-based predictive pre-limit, a latched e-stop, and sensor-fault handling that forces the drive inhibited. We run 15 scripted scenarios (159 checks) through (a) a small software model of the documented behaviour and (b) the real RTL under Icarus Verilog on identical stimulus, and compare both with a threshold-only baseline. The model met 159/159 checks and the RTL 157/159; the two RTL misses arise because the step-level stimulus for S06a, intended as one invalid sample, lasted about 240 ADC frames in the RTL (Section 6.3). The baseline met 93/159 by design. A separate frame-granular comparison (577 frames, 9 patterns) and an expansion of every step into 240 model samples (839 steps) showed no model–RTL differences; a dropout-timing difference between the model's watchdog and the RTL's is reported as an open limitation (Section 6.4). On a ramp of ~277 counts per 3 ms window the predictive pre-limit tripped 12 stimulus steps (6 ms of stimulus time) before the hard limit in both model and RTL. In single trials the RTL asserted `safe_state` 101–189 clock cycles (2.0–3.8 µs at 50 MHz) after a force-limit stimulus and 100 cycles after an invalid ADC value; these are single-trial values at different ADC frame phases, not bounds. No physical hardware was used; no real-world safety claim is made.
+ 
+ **Keywords:** tactile sensing, force limiting, reflex control, FPGA, fault handling, simulation-based verification
+ 
+ ## 1. Introduction and research question
+-Grippers must stop driving when contact force exceeds a limit even if higher-level software is slow or wrong. Question: *in simulation, does a hardware reflex path with hysteresis, slope prediction, a latched e-stop and sensor-fault inhibit behave as specified at, just below and just above its thresholds, and how does it differ from a threshold-only controller on identical inputs?* We make no novelty claim; a literature search for prior art was not performed **[TODO]**.
++Grippers must stop driving when contact force exceeds a limit even if higher-level software is slow or wrong. Question: *in simulation, does a hardware reflex path with hysteresis, slope prediction, a latched e-stop and sensor-fault inhibit behave as specified at, just below and just above its thresholds, and how does it differ from a threshold-only controller on identical inputs?* Tactile sensing for robot grasping is an established topic [1, 2], and reacting to detected contact so as to limit contact force has been studied for physical human–robot interaction [3, 4]. We make no novelty claim; a systematic literature search for prior art was not performed **[TODO]**.
+ 
+ ## 2. Related work
+-Verified as existing (catalogue/product pages only; contents not reviewed in depth):
+-- ISO/TS 15066:2016, *Robots and robotic devices — Collaborative robots*, first edition Feb. 2016, supplements ISO 10218-1/-2 (ISO catalogue, https://www.iso.org/standard/62996.html). Cited as context only; the design makes no compliance claim.
+-- Analog Devices, AD7476A/AD7477A/AD7478A datasheet (12-bit, 1 MSPS SAR ADC, SPI-compatible), https://www.analog.com/en/products/ad7476a.html.
+-- Texas Instruments, DRV8871 3.6-A brushed DC motor driver datasheet, https://www.ti.com/product/drv8871.
++Bibliographic metadata of every item below was cross-checked against at least two independent records; **no full text has been reviewed by the authors yet** **[TODO]**. Claims are limited to what the abstracts state.
++- Tactile sensing in robotics: [1] surveys human touch and transduction technologies for robotic touch; [2] presents a tactile-sensing grasp controller that lets a parallel-jaw gripper pick up and set down unknown objects gently.
++- Contact reaction: [3] reports collision detection and reaction strategies that reduced contact forces in impact tests with a lightweight robot; [4] surveys model-based collision detection, isolation and identification using proprioceptive sensing. Both use different sensing and control structures from this work.
++- Standards context: ISO/TS 15066:2016 [5] supplements ISO 10218-1/-2 for collaborative industrial robots. It is cited as context only; no compliance claim is made, and no specific force or pressure limit from it is used or verified here.
++- Components: AD7476A (12-bit, 1 MSPS SAR ADC, SPI-compatible) [6] and DRV8871 (3.6-A brushed DC motor driver) [7]. The exact AD7476A bit alignment assumed by `adc_interface.v` was **not** checked against the datasheet **[TODO]**.
+ 
+ **[TODO]** Academic related work (tactile reflex control, FPGA safety monitors, force-limited grippers) has not been searched; no paper is cited here because none was verified. Add only references you have opened and read.
+ 
+@@ -45,7 +46,7 @@
+ | S03e jump to 2559 | 6 | 6 | 6 | 3 | 0/33 |
+ | S04 hysteresis | 18 | 18 | 18 | 10 | 0/132 |
+ | S05 e-stop | 14 | 14 | 14 | 5 | 0/42 |
+-| S06a one invalid | 10 | 10 | **8** | 4 | 7/28 |
++| S06a invalid burst (ID `S06a_one_invalid`; ≈240 invalid frames in the RTL, see 6.3) | 10 | 10 | **8** | 4 | 7/28 |
+ | S06b persistent invalid | 14 | 14 | 14 | 5 | 3/40 |
+ | S06c dropout | 13 | 13 | 13 | 5 | 1/40 |
+ | S06d railed code | 15 | 15 | 15 | 9 | 3/39 |
+@@ -57,21 +58,44 @@
+ - **Boundary:** 2558 and 2559 do not trip; 2560 and 2561 trip on the first sample, in model and RTL. Hysteresis: after tripping, 2304 stays inhibited and 2303 releases, in model and RTL.
+ - **Predictor side effect (S03e):** a single jump 2000→2559, below the limit, tripped the predictor transiently (first inhibit at step 3 of the stimulus) in both model and RTL, then released. Designed behaviour, but it is a nuisance trip.
+ - **Noisy crossing (S07):** model and RTL inhibited once; the baseline toggled 7 times (chatter without hysteresis).
+-- **Fast ramp (S08):** trip at force code 2015 (trip reason = predicted) versus the hard limit reached at code 2569, i.e. 12 sample slots = 6.0 ms of simulated time earlier; RTL matched step-for-step.
++- **Fast ramp (S08):** trip at force code 2015 (trip reason = predicted) versus the hard limit reached at code 2569, i.e. 12 stimulus steps of 500 µs (300,000 clocks, 6.0 ms at 50 MHz) earlier; RTL matched step-for-step. This is a stimulus-dependent lead, not a response latency.
+ - **E-stop (S05):** inhibit on the press step, stays inhibited after release, resumes only after operator clear (model and RTL). The existing regression separately reports e-stop→PWM-low = 5 clock cycles (`results/sim_log.txt`, reproduced).
+-- **Latency, two different units.** *RTL clock cycles* (this study's replay, from input change at step start to `safe_state`): 101 (S03c, S03d), 100 (S06d), 173 (S02, S04), 189 (S07) cycles = 2.0–3.8 µs at 50 MHz; the spread is the wait for the next 104-clk ADC frame. Existing regression: sample_valid→PWM-low 4 cycles, input change→PWM-low 105–192. *Model latency* is 0 sample slots for every force-limit case: an artefact of the model having no ADC or pipeline delay, not a measured microcontroller latency. No Wokwi/MCU timing was measured **[TODO]**.
+-- **True single invalid frame (`rtl_single_invalid.txt`):** `safe_state` asserted for 104 cycles (one frame), trip bit 3 only, no latched sensor fault, then released.
++- **Latency.** Values are listed in the table below with their start and end events; model sample slots are never mixed with RTL clocks. The model has no ADC or pipeline delay, so its latency is 0 slots by construction and is not reported as a result. No Wokwi/MCU timing was measured **[TODO]**.
++- **True single invalid frame (`rtl_single_invalid.txt`, and frame-level patterns `ferr_001`, `rail_001`):** `safe_state` asserted for 104 cycles (one frame), trip bit 3 only, no latched sensor fault, then released.
++
++| Quantity | Start → end event | Value | Source | Type |
++|---|---|---|---|---|
++| Force-limit response, S03c/S03d | new code applied at step start → `safe_state` high | 101 clk (2.02 µs) | `experiments/results/rtl_log.txt` | single trial |
++| Force-limit response, S02/S04 (ramp) | same | 173 clk (3.46 µs) | same | single trial |
++| Force-limit response, S07 (noisy ramp) | same | 189 clk (3.78 µs) | same | single trial |
++| Invalid-ADC response, S06d | same | 100 clk (2.0 µs) | same | single trial |
++| E-stop, replay (S05) | `estop_n` low applied at step start → `safe_state` high | 4 clk (80 ns) | same | single trial |
++| E-stop, existing regression | `estop_n` fall → `pwm_out` low | 5 clk (100 ns), 6 trials, jitter 0 | `results/sim_log.txt` | measured |
++| Logic path, existing regression | `sample_valid` → `pwm_out` low | 4 clk (80 ns) | `results/sim_log.txt` | measured |
++| Input change → PWM low, existing regression | ADC input change → `pwm_out` low | 105–192 clk (2.10–3.84 µs), 12 phases | `results/sim_log.txt` | measured |
++| Watchdog | `force_valid` forced low → `sensor_fault` | 1898–1985 clk (38.0–39.7 µs), 4 phases | `experiments/validation/results/dropout_and_frame_count.txt` | measured |
++| Single invalid frame | `safe_state` high → low | 104 clk (2.08 µs) | `experiments/results/rtl_single_invalid.txt` | measured |
++
++The replay values depend on the ADC frame phase at the step start (25000 mod 104 = 40 clk shift per step); each is one trial, so 100–189 clk is a set of five observations, not a bound. The replay end event (`safe_state`) differs from the regression end event (`pwm_out`), so the two sets must not be compared directly.
++
++### 5.2 Frame-granular validation (`experiments/validation/`)
++One model step is one ADC sample, but one 500 µs RTL step contains about 240 ADC frames (240–241 `sample_valid` pulses per 25000 clocks, measured). To test the granularity explanation directly: (a) each of 9 patterns (1, 2, 3, 4, 5, 20 and 240 invalid frames; 1 and 4 railed frames) was applied one stimulus word per ADC frame to both the RTL and the model, 577 frame-by-frame comparisons of `safe_state`, command, trip bits, sensor-fault and e-stop flags: 0 differences; (b) every original step was expanded into 240 model samples and the model's end-of-step output compared with the existing step-level RTL log: 0 differences in 839 steps. In both RTL and model one invalid frame inhibits for one frame without a latched fault, and the sensor fault latches on the 4th consecutive invalid frame. For (b) the window counter of the model copy used for validation was widened (the original `uint8_t` cannot hold a 1442-frame window); an earlier run before that fix reported 30 spurious predictor mismatches, which were traced to this setup error and are not RTL differences. Both checks regenerate byte-identically from the saved sources (`experiments/validation/run_validation.py`, `step_expansion_check.py`). They compare the RTL with a model written by the same author, and compare only end-of-step (b) or per-frame (a) observations of constant-code stimuli.
++
++### 5.3 Watchdog timing (`experiments/validation/watchdog/`)
++The model's sensor-fault watchdog is 2 missing samples; the RTL's is 2000 clocks (`WD_CYCLES`), i.e. it faults only when the gap between valid samples exceeds 2000 clk, which at 104 clk per frame is 19 or more consecutive missing frames. Frame-granular dropout runs (10 dropout lengths, 1–40 frames) give: RTL faults for ≥19 missing frames and not for ≤18; the shipped model (`WD_STEPS`=2) faults for ≥2 and differs from the RTL for 9–25 frames per run until the operator clear (persistent, not transient); a model with `WD_STEPS`=19 reproduces the RTL's fault/no-fault outcome for every length tested and differs in exactly one transient frame (the 19th missing slot, where the model faults at 1976 clk and the RTL at 2000 clk); `WD_STEPS`=20 misses the 19-frame case. Evidence: `experiments/validation/watchdog/results/watchdog_frame_summary.md`.
+ 
+ ### 5.1 Existing RTL regression
+ Reproduced in a scratch copy: `sim/run_all.sh` exit 0, "ALL TESTBENCHES PASSED", `sim_log.txt` byte-identical to the committed one. Not run: Quartus synthesis/timing, hardware bring-up, formal checks (none exist in the repo).
+ 
+ ## 6. Discussion and threats to validity
+ ### 6.1 What the evidence supports
+-Within these scenarios, the RTL and an independent re-implementation of its documented rules agree on inhibit/command/trip-reason at the end of every 500 µs step in 825 of 839 comparisons; the remaining 14 are explained below.
++Within these scenarios, the RTL and an independent re-implementation of its documented rules agree on inhibit/command/trip-reason at the end of every 500 µs step in 825 of 839 comparisons; the remaining 14 are all in the S06 fault scenarios and are explained in Section 6.3 and verified by Section 5.2 (0 differences once the model is fed at the RTL's sample granularity). Watchdog dropout timing is a separate, open difference (Section 5.3, 6.4).
+ ### 6.2 What it does not support
+-Neither source proves physical safety. Inputs are synthetic code sequences, not FSR measurements; the ADC is a behavioural model; no DRV8871, motor, mechanics or EMI were simulated; thresholds are untuned defaults with no unit conversion; 15 scenarios is not coverage. Model–RTL agreement does not establish equivalence: the model was written by the same author from the same source, so a shared misreading would go undetected. Baseline comparisons are against a deliberately weak controller.
++Neither source proves physical safety. Inputs are synthetic code sequences, not FSR measurements; the ADC is a behavioural model; no DRV8871, motor, mechanics or EMI were simulated; thresholds are untuned defaults with no unit conversion; 15 scenarios is not coverage. Model–RTL agreement does not establish equivalence: the model was written by the same author from the same source, so a shared misreading would go undetected. Baseline comparisons are against a deliberately weak controller. The frame-level patterns use constant codes (no slope-dependent timing), nine fault patterns only, and the same tools (iverilog 12.0, gcc) on one machine; reproducibility was shown by regeneration, not by independent replication. Model sample timing (500 µs slot, 1 ms watchdog) is a modelling choice, not RTL timing.
+ ### 6.3 Disagreements
+-The model counts *samples* (one step = one sample); the RTL counts *clocks* (one 500 µs step ≈ 240 ADC frames). Hence S06a's "single invalid sample" became an ≈240-frame invalid burst in the RTL, which latches a sensor fault (correctly, per `INVALID_LIMIT`=4) — the 2 RTL check misses. The proper one-frame RTL test (above) matches the rule. S06b–d differences are the RTL asserting the latched-fault bit earlier within the same step; end-of-segment checks agree. The model's watchdog (2 missing slots) is not the RTL's (2000 clk).
++The model counts *samples* (one step = one sample); the RTL counts *clocks* (one 500 µs step ≈ 240 ADC frames). Hence S06a, intended as a single invalid sample, became an ≈240-frame invalid burst in the RTL, which latches a sensor fault (correctly, per `INVALID_LIMIT`=4); this accounts for its 2 RTL check misses and 7 differing steps. The scenario ID is kept in the evidence files, but it should be described as an invalid burst; the single-frame case is covered by the frame-level patterns and `rtl_single_invalid.txt`. S06b and S06d differ only in the RTL asserting the latched-fault bit earlier within the same step; S06c differs because the model's watchdog is 2 missing slots and the RTL's is 2000 clk. All 14 differences disappear when the model is fed 240 samples per step (Section 5.2).
++### 6.4 Open difference: watchdog
++Section 5.3 shows that the shipped model and the RTL differ persistently for dropouts of 2–18 frames (about 4–37 µs): the model latches a sensor fault and the RTL does not. This is invisible at 500 µs step granularity and is not a transient. Model–RTL equivalence is therefore **not** claimed for watchdog behaviour. No integer slot count is exact either, because the 2000 clk timeout falls between slot 19 (1976 clk) and slot 20 (2080 clk).
+ 
+ ## 7. Conclusion and future work
+ In simulation, the controller behaves as documented at the force boundary, through hysteresis, under e-stop and under sensor faults, and the predictive pre-limit trips earlier on fast ramps at the cost of nuisance trips on large jumps. Future work: run the Wokwi build and capture its log; replace synthetic inputs with recorded FSR data; add formal checks; sweep `PRED_*`; tune thresholds in physical units; Quartus timing; bench tests with current-limited driver and no mechanical load, under appropriate supervision.
+@@ -80,12 +104,19 @@
+ ```bash
+ sh sim/run_all.sh            # existing RTL regression (overwrites results/, so run in a scratch copy)
+ sh experiments/run_experiments.sh   # model + RTL replay + dataset, ~2 min; writes only experiments/results/
++python3 experiments/validation/run_validation.py && python3 experiments/validation/step_expansion_check.py   # frame-level (577) and step-expanded (839) comparisons
++python3 experiments/validation/watchdog/run_watchdog_check.py     # watchdog timing
+ ```
+ Requires gcc, iverilog 12.0, python3 (stdlib only for experiments; numpy/scikit-learn/matplotlib/pandas for `run_all.sh`). **Wokwi:** files are in `experiments/wokwi/` with instructions in its README; they were **not run in Wokwi** (egress blocked) and no project link exists **[TODO]**.
+ 
+ ## References
+-1. ISO/TS 15066:2016, https://www.iso.org/standard/62996.html (existence verified, text not reviewed)
+-2. Analog Devices AD7476A product page, https://www.analog.com/en/products/ad7476a.html (existence verified)
+-3. Texas Instruments DRV8871 product page, https://www.ti.com/product/drv8871 (existence verified)
++Metadata verified against at least two independent records; full text not yet reviewed (all items).
++1. R. S. Dahiya, G. Metta, M. Valle and G. Sandini, "Tactile Sensing—From Humans to Humanoids," *IEEE Trans. Robotics*, vol. 26, no. 1, pp. 1–20, 2010. doi:10.1109/TRO.2009.2033627
++2. J. M. Romano, K. Hsiao, G. Niemeyer, S. Chitta and K. J. Kuchenbecker, "Human-Inspired Robotic Grasp Control with Tactile Sensing," *IEEE Trans. Robotics*, vol. 27, no. 6, pp. 1067–1079, 2011. doi:10.1109/TRO.2011.2162271
++3. S. Haddadin, A. Albu-Schäffer, A. De Luca and G. Hirzinger, "Collision Detection and Reaction: A Contribution to Safe Physical Human-Robot Interaction," *Proc. IEEE/RSJ IROS*, pp. 3356–3363, 2008. doi:10.1109/IROS.2008.4650764
++4. S. Haddadin, A. De Luca and A. Albu-Schäffer, "Robot Collisions: A Survey on Detection, Isolation, and Identification," *IEEE Trans. Robotics*, vol. 33, no. 6, pp. 1292–1312, 2017. doi:10.1109/TRO.2017.2723903
++5. ISO/TS 15066:2016, *Robots and robotic devices — Collaborative robots*, https://www.iso.org/standard/62996.html
++6. Analog Devices, AD7476A/AD7477A/AD7478A datasheet, https://www.analog.com/en/products/ad7476a.html (revision to be recorded **[TODO]**)
++7. Texas Instruments, DRV8871 datasheet, https://www.ti.com/product/drv8871 (revision to be recorded **[TODO]**)
+ 
+-Reference verification status: 3 items checked for existence only; 0 academic papers cited.
++Reference verification status: 7 items; metadata checked for 7; full text reviewed for 0. ISO 10218-1:2011 is deliberately not cited because its current status (withdrawn/revised) conflicts between sources.

@@ -1,0 +1,6 @@
+# Python dependencies for the ML pipeline, plots and the regression flow (sim/run_all.sh).
+# Ranges are compatible-release bounds; the exact versions this project was last verified with are pinned in requirements-lock.txt.
+numpy>=1.26,<3
+scikit-learn>=1.4,<2
+matplotlib>=3.8,<4
+pandas>=2.1,<4

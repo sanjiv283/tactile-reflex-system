@@ -1,0 +1,22 @@
+{
+ "cell_types": {
+  "$_DFFE_PP_": 1,
+  "$_DFF_PN0_": 4,
+  "$_DFF_P_": 9,
+  "$_SDFFE_PN0N_": 58,
+  "$_SDFFE_PN0P_": 187,
+  "$_SDFFE_PN1P_": 20,
+  "$_SDFFE_PP0N_": 41,
+  "$_SDFF_PN0_": 75,
+  "$_SDFF_PN1_": 5,
+  "$_SDFF_PP0_": 66,
+  "$lut": 625
+ },
+ "flip_flops": 466,
+ "latches": 0,
+ "lut4_estimate": 625,
+ "memory_cells": {},
+ "note": "generic ABC LUT4 mapping, not a Quartus fit; no timing analysis; Cyclone IV EP4CE115 has 114,480 LEs (for scale only)",
+ "tool": "yosys generic synthesis",
+ "top": "de2_115_top"
+}

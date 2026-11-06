@@ -1,0 +1,25 @@
+$ sh experiments/run_experiments_v2.sh
+S08_fast_ramp | 9 | 9/9 | 9/9 | 6/9 | 0/61 | -12 | 1/1 | 1
+TOTAL | 159 | 159/159 | 157/159 | 93/159 | 13/839 | | |
+RTLX,single_invalid_frame,safe_seen=1,trip_bits_or=8,sensor_fault_ever=0,final_safe=0,final_cmd=157,safe_on_to_off_cycles=104
+exit=0
+$ python3 experiments/validation/run_validation_v2.py
+CNT,window=3,sample_valid_pulses_per_25000_clk=241
+experiments/validation/tb_frames.v:50: $finish called at 2010110000 (1ps)
+
+exit=0
+$ python3 experiments/validation/step_expansion_check_v2.py
+frames/step=240 steps compared=839 mismatches=0
+{'S01_normal': 0, 'S02_slow_crossing': 0, 'S03a_2558': 0, 'S03b_2559': 0, 'S03c_2560': 0, 'S03d_2561': 0, 'S03e_jump_2559': 0, 'S04_hysteresis': 0, 'S05_estop': 0, 'S06a_one_invalid': 0, 'S06b_persist_invalid': 0, 'S06c_dropout': 0, 'S06d_rail': 0, 'S07_noisy_crossing': 0, 'S08_fast_ramp': 0}
+exit=0
+$ python3 experiments/validation/watchdog/regress_time_based_v2.py
+25 | 20 | 20 | 0
+40 | 20 | 20 | 0
+TOTAL | | | 0
+exit=0
+$ python3 experiments/wokwi_single_v2/make_single_v2.py
+exit=0
+$ g++ -Wall -Wextra -o stub_v2 stub_v2.cpp   # single-file v2 sketch against a STUB Arduino core (not ESP32/Wokwi)
+g++ exit=0
+$ stub_v2 | grep LOG/CHK/SUM/PARAM | diff - results_v2/model_log.txt
+IDENTICAL: v2 single-file stub log == results_v2/model_log.txt (exit 0)

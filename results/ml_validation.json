@@ -1,0 +1,97 @@
+{
+ "data": "SIMULATED",
+ "depth_sweep_cv_accuracy": {
+  "1": 0.6568666666666666,
+  "2": 0.77135,
+  "3": 0.8972708333333334,
+  "4": 0.9258875,
+  "5": 0.9281541666666666,
+  "6": 0.9314500000000001,
+  "7": 0.9329708333333333,
+  "8": 0.9327416666666666
+ },
+ "extra_noise_sigma_counts_accuracy": {
+  "0": 0.9192777777777777,
+  "10": 0.9096111111111111,
+  "20": 0.8785833333333334,
+  "40": 0.8229027777777778,
+  "80": 0.761125
+ },
+ "grouped_5fold_cv": {
+  "baseline": {
+   "folds": [
+    0.856125,
+    0.8556041666666667,
+    0.86125,
+    0.8726875,
+    0.86575
+   ],
+   "mean": 0.8622833333333334,
+   "std": 0.006385429921139015
+  },
+  "excessive_as_normal": {
+   "folds": [
+    0.2012123253072908,
+    0.30226955749968304,
+    0.2858891414582969,
+    0.21814337881991158,
+    0.2063257463789536
+   ],
+   "mean": 0.2427680298928272,
+   "std": 0.04257029974515067
+  },
+  "excessive_recall": {
+   "folds": [
+    0.7987876746927092,
+    0.697223278813237,
+    0.7139360027976919,
+    0.7816644243705555,
+    0.7933786579958617
+   ],
+   "mean": 0.756998007734011,
+   "std": 0.04267485108203472
+  },
+  "model": {
+   "folds": [
+    0.9181458333333333,
+    0.9177708333333333,
+    0.9285833333333333,
+    0.938125,
+    0.9268125
+   ],
+   "mean": 0.9258875,
+   "std": 0.007532505946451907
+  }
+ },
+ "heldout_accuracy": {
+  "ci95_episode_bootstrap": [
+   0.8983604166666668,
+   0.938584375
+  ],
+  "point": 0.9192777777777777
+ },
+ "label_shuffle_control": {
+  "accuracy": 0.5294305555555555,
+  "majority_rate": 0.5298472222222222
+ },
+ "note": "all numbers come from the synthetic episode generator; not real sensor data",
+ "per_class_recall_heldout": {
+  "excessive force": 0.7187607573149741,
+  "light contact": 0.9365604329524955,
+  "no contact": 0.9846653909669978,
+  "normal grip": 0.8586225095659058
+ },
+ "safety_view": {
+  "excessive_below_limit_predicted_not_excessive": 2451,
+  "excessive_predicted_normal": 0.2810097532989099,
+  "excessive_recall": 0.7187607573149741,
+  "excessive_samples": 8715,
+  "excessive_samples_below_hard_limit": 5096,
+  "note": "a missed 'excessive' call leaves the command at the LUT value; the hard force limit (and slope predictor) still apply independently of the AI"
+ },
+ "split": {
+  "overlap": 0,
+  "test_episodes": 180,
+  "train_episodes": 420
+ }
+}

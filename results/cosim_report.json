@@ -1,0 +1,130 @@
+{
+ "coverage_minimums": {
+  "estop_latched_after_release": 6,
+  "estop_pressed": 8,
+  "hysteresis_band": 6,
+  "over_limit": 12,
+  "sensor_fault_active": 6,
+  "sensor_fault_latched_after": 3
+ },
+ "host_bytes_dropped": 0,
+ "host_frames_decoded": 144,
+ "packet_types_in_F": {
+  "badchk": 18,
+  "badhdr": 18,
+  "garbage": 18,
+  "good": 72,
+  "incons": 18
+ },
+ "passes": {
+  "A": {
+   "ai_capped": 0,
+   "ai_rejected_expected": 0,
+   "ai_valid": 0,
+   "checked": 120,
+   "classes": [],
+   "estop_latched_after_release": 10,
+   "estop_pressed": 12,
+   "hysteresis_band": 6,
+   "over_limit": 20,
+   "resumed_after_clear": 0,
+   "sensor_fault_active": 8,
+   "sensor_fault_latched_after": 7
+  },
+  "B": {
+   "ai_capped": 35,
+   "ai_rejected_expected": 0,
+   "ai_valid": 120,
+   "checked": 120,
+   "classes": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "estop_latched_after_release": 10,
+   "estop_pressed": 12,
+   "hysteresis_band": 6,
+   "over_limit": 20,
+   "resumed_after_clear": 0,
+   "sensor_fault_active": 8,
+   "sensor_fault_latched_after": 7
+  },
+  "C": {
+   "ai_capped": 45,
+   "ai_rejected_expected": 0,
+   "ai_valid": 120,
+   "checked": 120,
+   "classes": [
+    2
+   ],
+   "estop_latched_after_release": 10,
+   "estop_pressed": 12,
+   "hysteresis_band": 6,
+   "over_limit": 20,
+   "resumed_after_clear": 0,
+   "sensor_fault_active": 8,
+   "sensor_fault_latched_after": 7
+  },
+  "D": {
+   "ai_capped": 51,
+   "ai_rejected_expected": 0,
+   "ai_valid": 120,
+   "checked": 120,
+   "classes": [
+    3
+   ],
+   "estop_latched_after_release": 10,
+   "estop_pressed": 12,
+   "hysteresis_band": 6,
+   "over_limit": 20,
+   "resumed_after_clear": 0,
+   "sensor_fault_active": 8,
+   "sensor_fault_latched_after": 7
+  },
+  "E": {
+   "ai_capped": 13,
+   "ai_rejected_expected": 74,
+   "ai_valid": 43,
+   "checked": 120,
+   "classes": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "estop_latched_after_release": 10,
+   "estop_pressed": 12,
+   "hysteresis_band": 6,
+   "over_limit": 20,
+   "resumed_after_clear": 0,
+   "sensor_fault_active": 8,
+   "sensor_fault_latched_after": 7
+  },
+  "F": {
+   "ai_capped": 27,
+   "ai_rejected_expected": 28,
+   "ai_valid": 90,
+   "checked": 120,
+   "classes": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "estop_latched_after_release": 10,
+   "estop_pressed": 12,
+   "hysteresis_band": 6,
+   "over_limit": 20,
+   "resumed_after_clear": 0,
+   "sensor_fault_active": 8,
+   "sensor_fault_latched_after": 7
+  }
+ },
+ "problems": [],
+ "result": "PASS",
+ "scope": "host code vs RTL in simulation (ideal UART, behavioural ADC, open-loop host); no hardware, no real serial port",
+ "step_clocks": 12000,
+ "telemetry_frames": 145,
+ "trace_steps": 52
+}

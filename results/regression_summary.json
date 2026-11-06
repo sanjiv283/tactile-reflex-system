@@ -1,0 +1,161 @@
+{
+ "testbenches": 19,
+ "passed_testbenches": 19,
+ "failed_testbenches": 0,
+ "assertions_passed": 4640,
+ "assertions_failed": 0,
+ "per_testbench": [
+  {
+   "name": "tb_adc_interface",
+   "status": "PASS",
+   "passed": 17,
+   "failed": 0,
+   "extra": "VECTORS 0 NOTE directed assertions only",
+   "problems": []
+  },
+  {
+   "name": "tb_input_conditioning",
+   "status": "PASS",
+   "passed": 12,
+   "failed": 0,
+   "extra": "VECTORS 0 NOTE directed assertions only",
+   "problems": []
+  },
+  {
+   "name": "tb_force_lut",
+   "status": "PASS",
+   "passed": 12,
+   "failed": 0,
+   "extra": "VECTORS 0 NOTE directed assertions only",
+   "problems": []
+  },
+  {
+   "name": "tb_safety_governor",
+   "status": "PASS",
+   "passed": 28,
+   "failed": 0,
+   "extra": "VECTORS 0 NOTE directed assertions only",
+   "problems": []
+  },
+  {
+   "name": "tb_pwm_generator",
+   "status": "PASS",
+   "passed": 12,
+   "failed": 0,
+   "extra": "VECTORS 0 NOTE directed assertions only",
+   "problems": []
+  },
+  {
+   "name": "tb_fault_handler",
+   "status": "PASS",
+   "passed": 13,
+   "failed": 0,
+   "extra": "VECTORS 0 NOTE directed assertions only",
+   "problems": []
+  },
+  {
+   "name": "tb_ai_control_interface",
+   "status": "PASS",
+   "passed": 9,
+   "failed": 0,
+   "extra": "VECTORS 0 NOTE directed assertions only",
+   "problems": []
+  },
+  {
+   "name": "tb_uart_link",
+   "status": "PASS",
+   "passed": 15,
+   "failed": 0,
+   "extra": "VECTORS 0 NOTE directed assertions only",
+   "problems": []
+  },
+  {
+   "name": "tb_uart_framing",
+   "status": "PASS",
+   "passed": 45,
+   "failed": 0,
+   "extra": "VECTORS 49",
+   "problems": []
+  },
+  {
+   "name": "tb_top",
+   "status": "PASS",
+   "passed": 48,
+   "failed": 0,
+   "extra": "VECTORS 0 NOTE directed system scenarios",
+   "problems": []
+  },
+  {
+   "name": "tb_de2_115_top",
+   "status": "PASS",
+   "passed": 23,
+   "failed": 0,
+   "extra": "VECTORS 0 NOTE directed board-wrapper scenarios; DEBOUNCE_CLKS=4",
+   "problems": []
+  },
+  {
+   "name": "tb_pred_governor",
+   "status": "PASS",
+   "passed": 1,
+   "failed": 0,
+   "extra": "VECTORS 4720 NOTE RTL slope predictor vs Python reference; ONE aggregate assertion (zero mismatches over all vectors), not one per vector",
+   "problems": []
+  },
+  {
+   "name": "tb_pred_system",
+   "status": "PASS",
+   "passed": 8,
+   "failed": 0,
+   "extra": "VECTORS 0 NOTE directed ramps, predictor on vs off",
+   "problems": []
+  },
+  {
+   "name": "tb_replay",
+   "status": "PASS",
+   "passed": 1976,
+   "failed": 0,
+   "extra": "VECTORS 1800 NOTE SIMULATED ADC vectors; pass = invariant evaluations (cmd<=LUT per vector + safe-state and override-flag per over-limit vector)",
+   "problems": []
+  },
+  {
+   "name": "tb_replay_adversarial",
+   "status": "PASS",
+   "passed": 1976,
+   "failed": 0,
+   "extra": "VECTORS 1800 NOTE SIMULATED ADC vectors; pass = invariant evaluations (cmd<=LUT per vector + safe-state and override-flag per over-limit vector)",
+   "problems": []
+  },
+  {
+   "name": "tb_reset_recovery",
+   "status": "PASS",
+   "passed": 50,
+   "failed": 0,
+   "extra": "VECTORS 14 NOTE DEBOUNCE_CLKS=32 in simulation; 1000000 on the board",
+   "problems": []
+  },
+  {
+   "name": "tb_debounce",
+   "status": "PASS",
+   "passed": 35,
+   "failed": 0,
+   "extra": "VECTORS 9 NOTE button_debounce+reset_sync only; board uses N=1000000",
+   "problems": []
+  },
+  {
+   "name": "tb_host_link",
+   "status": "PASS",
+   "passed": 158,
+   "failed": 0,
+   "extra": "VECTORS 48 NOTE host packet builder -> uart_tx -> ai_uart_bridge -> ai_control_interface; 36 accepted, 12 rejected",
+   "problems": []
+  },
+  {
+   "name": "tb_telemetry_tx",
+   "status": "PASS",
+   "passed": 202,
+   "failed": 0,
+   "extra": "VECTORS 65 NOTE telemetry_tx alone, decoded by an independent uart_rx; PERIOD=1000",
+   "problems": []
+  }
+ ]
+}

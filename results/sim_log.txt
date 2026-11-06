@@ -1,25 +1,31 @@
 INFO: ADC frame period = 104 clk cycles (2080 ns at 50 MHz)
-TB tb_adc_interface: PASS 17 FAIL 0
-TB tb_input_conditioning: PASS 9 FAIL 0
-TB tb_force_lut: PASS 12 FAIL 0
-TB tb_safety_governor: PASS 22 FAIL 0
-TB tb_pwm_generator: PASS 8 FAIL 0
-TB tb_fault_handler: PASS 13 FAIL 0
-TB tb_ai_control_interface: PASS 9 FAIL 0
-TB tb_uart_link: PASS 15 FAIL 0
+TB tb_adc_interface: PASS 17 FAIL 0 VECTORS 0 NOTE directed assertions only
+TB tb_input_conditioning: PASS 12 FAIL 0 VECTORS 0 NOTE directed assertions only
+TB tb_force_lut: PASS 12 FAIL 0 VECTORS 0 NOTE directed assertions only
+TB tb_safety_governor: PASS 28 FAIL 0 VECTORS 0 NOTE directed assertions only
+TB tb_pwm_generator: PASS 12 FAIL 0 VECTORS 0 NOTE directed assertions only
+TB tb_fault_handler: PASS 13 FAIL 0 VECTORS 0 NOTE directed assertions only
+TB tb_ai_control_interface: PASS 9 FAIL 0 VECTORS 0 NOTE directed assertions only
+TB tb_uart_link: PASS 15 FAIL 0 VECTORS 0 NOTE directed assertions only
+TB tb_uart_framing: PASS 45 FAIL 0 VECTORS 49
 RESULT estop_to_pwm_low_cycles min=5 max=5 jitter=0
-RESULT adc_input_change_to_pwm_low_cycles min=105 max=192 jitter=87
+RESULT adc_input_change_to_pwm_low_cycles min=115 max=202 jitter=87
 RESULT sample_valid_to_pwm_low_cycles min=4 max=4 jitter=0
-TB tb_top: PASS 44 FAIL 0
-TB tb_de2_115_top: PASS 18 FAIL 0
+TB tb_top: PASS 48 FAIL 0 VECTORS 0 NOTE directed system scenarios
+TB tb_de2_115_top: PASS 23 FAIL 0 VECTORS 0 NOTE directed board-wrapper scenarios; DEBOUNCE_CLKS=4
 RESULT pred_rtl_vs_model vectors=4720 expected_trips=50 mismatches=0
-TB tb_pred_governor: PASS 1 FAIL 0
+TB tb_pred_governor: PASS 1 FAIL 0 VECTORS 4720 NOTE RTL slope predictor vs Python reference; ONE aggregate assertion (zero mismatches over all vectors), not one per vector
 RESULT pred_system fast_ramp(+200/window): predictive trips at ADC value 2168 (0x878), hard-limit-only trips at 2568 (0xa08), FORCE_MAX=2560
 RESULT pred_system slow_ramp(+60/window): predictive trips at 2568, hard-limit-only trips at 2568
-TB tb_pred_system: PASS 7 FAIL 0
+TB tb_pred_system: PASS 8 FAIL 0 VECTORS 0 NOTE directed ramps, predictor on vs off
 RESULT replay mode=ml_tree_ai vectors=1800 over_limit_samples=88 ai_not_class3_during_over_limit=2 safe_state_samples=89
 RESULT replay mode=ml_tree_ai violations: safe_state=0 cmd_above_lut=0
-TB tb_replay: PASS 2 FAIL 0
+TB tb_replay: PASS 1976 FAIL 0 VECTORS 1800 NOTE SIMULATED ADC vectors; pass = invariant evaluations (cmd<=LUT per vector + safe-state and override-flag per over-limit vector)
 RESULT replay mode=adversarial_ai vectors=1800 over_limit_samples=88 ai_not_class3_during_over_limit=88 safe_state_samples=89
 RESULT replay mode=adversarial_ai violations: safe_state=0 cmd_above_lut=0
-TB tb_replay_adversarial: PASS 2 FAIL 0
+TB tb_replay_adversarial: PASS 1976 FAIL 0 VECTORS 1800 NOTE SIMULATED ADC vectors; pass = invariant evaluations (cmd<=LUT per vector + safe-state and override-flag per over-limit vector)
+TB tb_reset_recovery: PASS 50 FAIL 0 VECTORS 14 NOTE DEBOUNCE_CLKS=32 in simulation; 1000000 on the board
+TB tb_debounce: PASS 35 FAIL 0 VECTORS 9 NOTE button_debounce+reset_sync only; board uses N=1000000
+TB tb_host_link: PASS 158 FAIL 0 VECTORS 48 NOTE host packet builder -> uart_tx -> ai_uart_bridge -> ai_control_interface; 36 accepted, 12 rejected
+INFO telemetry frame spacing = 1325 clocks for PERIOD = 1000
+TB tb_telemetry_tx: PASS 202 FAIL 0 VECTORS 65 NOTE telemetry_tx alone, decoded by an independent uart_rx; PERIOD=1000

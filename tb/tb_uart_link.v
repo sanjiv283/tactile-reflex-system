@@ -25,6 +25,6 @@ module tb_uart_link;
         tx_byte(8'h33); tx_byte(8'h77); packet(8'h13, 8'hEC); check(g[15:8] == 8'd5 && g[1:0] == 2'd3, "garbage before header: resyncs");
         tx_byte(8'hA5); tx_byte(8'h16); packet(8'h1C, 8'hE3); packet(8'h1C, 8'hE3); check(g[15:8] >= 8'd6 && g[1:0] == 2'd0, "dropped byte: resyncs within one packet");
         rst_n = 0; repeat (3) @(posedge clk); #1 check(g == 16'h0000, "reset clears");
-        $display("TB tb_uart_link: PASS %0d FAIL %0d", pass, fail); $finish;
+        $display("TB tb_uart_link: PASS %0d FAIL %0d VECTORS 0 NOTE directed assertions only", pass, fail); $finish;
     end
 endmodule

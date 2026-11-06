@@ -13,10 +13,13 @@ module tb_input_conditioning;
         push(12'hFEF, 0); check(inv == 0, "just below rail is valid");
         push(12'hFF0, 0); check(inv == 1, "rail threshold is invalid");
         push(12'hFFF, 0); check(inv == 1, "full scale is invalid");
+        push(12'hFF1, 0); check(inv == 1, "rail threshold + 1 is invalid");
+        push(12'hFEE, 0); check(inv == 0, "two below the rail threshold is valid");
+        push(12'hFF0, 0); check(inv == 1 && fc == 12'hFF0, "rail threshold: flagged invalid on a second, independent push");
         push(12'h200, 1); check(inv == 1, "frame error is invalid");
         push(12'h200, 0); check(inv == 0, "recovers on a good sample");
         @(negedge clk); sample = 12'h777; @(negedge clk); check(fc == 12'h200, "holds value without valid strobe");
         rst_n = 0; @(posedge clk); @(posedge clk); check(fc == 0 && fv == 0 && inv == 0, "reset clears outputs");
-        $display("TB tb_input_conditioning: PASS %0d FAIL %0d", pass, fail); $finish;
+        $display("TB tb_input_conditioning: PASS %0d FAIL %0d VECTORS 0 NOTE directed assertions only", pass, fail); $finish;
     end
 endmodule

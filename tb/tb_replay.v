@@ -14,11 +14,13 @@ module tb_replay;
     tactile_reflex_top #(.AI_TIMEOUT(3000), .PRED_EN(0)) dut (.clk(clk), .rst_n(rst_n), .adc_cs_n(cs_n), .adc_sclk(sclk), .adc_miso(miso),
         .estop_n(1'b1), .fault_clear(fault_clear), .ai_gpio(ai_gpio), .pwm_out(pwm), .safe_state(safe), .sensor_fault(sfault),
         .estop_active(estop_a), .ai_valid(ai_v), .dbg_sample_valid(dbg_sv), .cmd_out(cmd), .trip_reason(trip), .ai_overridden(ai_ov));
+    safety_monitor #(.NAME("replay")) smon (.clk(clk), .rst_s(dut.rst_s), .safe_state(dut.safe_state), .pwm_out(dut.pwm_out), .cmd_out(dut.cmd_out), .lut_cmd(dut.lut_cmd),
+        .lut_valid(dut.lut_valid), .lut_force(dut.lut_force), .estop_active(dut.estop_active), .sensor_fault(dut.sensor_fault), .adc_invalid(dut.adc_invalid));
     reg [7:0] rom [0:255]; initial $readmemh("rtl/force_lut.mem", rom);
     reg [15:0] vec [0:2047];
     always @(posedge clk) begin hbc <= hbc + 1; if (hbc == 499) begin hbc <= 0; hb <= hb + 1; end end
 
-    integer n, i, viol_safe = 0, viol_cmd = 0, over_samples = 0, overridden = 0, ai_wrong_but_safe = 0, checked = 0, tripped = 0;
+    integer n, i, viol_safe = 0, viol_cmd = 0, viol_ov = 0, over_samples = 0, overridden = 0, ai_wrong_but_safe = 0, checked = 0, tripped = 0;
     reg [11:0] f; reg adv;
     initial begin
         adv = $test$plusargs("ADVERSARIAL");   // AI always claims class 2 (normal grip)
@@ -38,12 +40,14 @@ module tb_replay;
                 over_samples = over_samples + 1;
                 if (!(safe === 1'b1 && pwm === 1'b0 && cmd === 8'd0)) viol_safe = viol_safe + 1;
                 if (ps_cls != 2'd3) overridden = overridden + 1;
+                if (ai_ov !== (ai_v && ps_cls != 2'd3)) viol_ov = viol_ov + 1;
             end
             if (cmd > rom[f >> 4]) viol_cmd = viol_cmd + 1;
         end
+        viol_safe = viol_safe + smon.viol;
         $display("RESULT replay mode=%0s vectors=%0d over_limit_samples=%0d ai_not_class3_during_over_limit=%0d safe_state_samples=%0d", adv ? "adversarial_ai" : "ml_tree_ai", checked, over_samples, overridden, tripped);
         $display("RESULT replay mode=%0s violations: safe_state=%0d cmd_above_lut=%0d", adv ? "adversarial_ai" : "ml_tree_ai", viol_safe, viol_cmd);
-        $display("TB tb_replay%0s: PASS %0d FAIL %0d", adv ? "_adversarial" : "", (viol_safe == 0 && viol_cmd == 0) ? 2 : 0, viol_safe + viol_cmd);
+        $display("TB tb_replay%0s: PASS %0d FAIL %0d VECTORS %0d NOTE SIMULATED ADC vectors; pass = invariant evaluations (cmd<=LUT per vector + safe-state and override-flag per over-limit vector)", adv ? "_adversarial" : "", (checked - viol_cmd) + (over_samples - viol_safe) + (over_samples - viol_ov), viol_safe + viol_cmd + viol_ov, checked);
         $finish;
     end
     initial begin #400_000_000; $display("TB tb_replay: TIMEOUT"); $finish; end

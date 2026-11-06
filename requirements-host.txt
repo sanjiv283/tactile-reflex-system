@@ -1,0 +1,2 @@
+# Only needed to talk to a real (or virtual) serial port with host/ai_host.py in live mode.  `--selftest` and the unit tests do not need it.
+pyserial>=3.5,<4

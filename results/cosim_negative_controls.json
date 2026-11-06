@@ -1,0 +1,57 @@
+{
+ "M02": {
+  "detected": true,
+  "first_problem": "PROBLEM: A: frame 55 value 2559: RTL safe/sensor_fault/estop_latch = 0/0/0, reference model says 1/0/0",
+  "name": "hysteresis removed (release at FORCE_MAX)"
+ },
+ "M03": {
+  "detected": true,
+  "first_problem": "PROBLEM: A: harness/monitor problem:",
+  "name": "e-stop not a trip cause"
+ },
+ "M04": {
+  "detected": true,
+  "first_problem": "PROBLEM: A: harness/monitor problem: FETY cosim @10443990000: S3 fault cause not in safe state",
+  "name": "sensor fault not a trip cause"
+ },
+ "M08": {
+  "detected": true,
+  "first_problem": "PROBLEM: B: frame 14 value 300: cmd 166, expected 64 (LUT 166, class 2)",
+  "name": "AI class-2 cap removed"
+ },
+ "M09": {
+  "detected": true,
+  "first_problem": "PROBLEM: B: harness/monitor problem: UT command",
+  "name": "AI class-3 uses wrong cap"
+ },
+ "M10": {
+  "detected": true,
+  "first_problem": "PROBLEM: A: harness/monitor problem: md",
+  "name": "command not zeroed on trip"
+ },
+ "M19": {
+  "detected": true,
+  "first_problem": "PROBLEM: F: frame 8: ai_valid 1, expected 0",
+  "name": "AI integrity check disabled"
+ },
+ "M20": {
+  "detected": true,
+  "first_problem": "PROBLEM: E: frame 63: ai_valid 1, expected 0",
+  "name": "AI heartbeat timeout disabled"
+ },
+ "M24": {
+  "detected": true,
+  "first_problem": "PROBLEM: F: frame 12: ai_class 1, expected 0",
+  "name": "AI packet checksum ignored"
+ },
+ "M25": {
+  "detected": true,
+  "first_problem": "PROBLEM: host parser dropped 435 bytes on a clean RTL telemetry stream",
+  "name": "telemetry header byte changed"
+ },
+ "M46": {
+  "detected": true,
+  "first_problem": "PROBLEM: A: harness/monitor problem: rced",
+  "name": "force limit comparison disabled"
+ }
+}

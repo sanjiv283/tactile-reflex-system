@@ -6,13 +6,15 @@ module tb_de2_115_top;
     reg [3:0] key = 4'b1111; reg uart_rxd = 1; reg estop_ext_n = 1; reg [11:0] value = 12'h000;
     wire [17:0] ledr; wire [8:0] ledg; wire uart_txd, cs_n, sclk, miso, pwm, dsv, dsafe;
     ad7476_model adc (.cs_n(cs_n), .sclk(sclk), .value(value), .corrupt(1'b0), .miso(miso));
-    de2_115_top #(.CLKS_PER_BIT(CPB), .TX_PERIOD(3000), .AI_TIMEOUT(20000), .PRED_EN(0)) dut (.CLOCK_50(clk), .KEY(key), .LEDR(ledr), .LEDG(ledg),
+    de2_115_top #(.CLKS_PER_BIT(CPB), .TX_PERIOD(3000), .AI_TIMEOUT(20000), .PRED_EN(0), .DEBOUNCE_CLKS(4)) dut (.CLOCK_50(clk), .KEY(key), .LEDR(ledr), .LEDG(ledg),
         .UART_RXD(uart_rxd), .UART_TXD(uart_txd), .ADC_CS_N(cs_n), .ADC_SCLK(sclk), .ADC_MISO(miso), .ESTOP_EXT_N(estop_ext_n),
         .PWM_OUT(pwm), .DBG_SAMPLE_VALID(dsv), .DBG_SAFE_STATE(dsafe));
     wire safe = ledr[0], sfault = ledr[1], estop = ledr[2], aiov = ledr[3], aiv = ledg[0];
 
     reg [7:0] rom [0:255]; initial $readmemh("rtl/force_lut.mem", rom);
     integer pass = 0, fail = 0;
+    safety_monitor #(.NAME("de2")) smon (.clk(clk), .rst_s(dut.u_core.rst_s), .safe_state(dut.u_core.safe_state), .pwm_out(dut.u_core.pwm_out), .cmd_out(dut.u_core.cmd_out), .lut_cmd(dut.u_core.lut_cmd),
+        .lut_valid(dut.u_core.lut_valid), .lut_force(dut.u_core.lut_force), .estop_active(dut.u_core.estop_active), .sensor_fault(dut.u_core.sensor_fault), .adc_invalid(dut.u_core.adc_invalid));
     task check(input c, input [383:0] msg); begin if (c) pass = pass + 1; else begin fail = fail + 1; $display("FAIL @%0t: %0s", $time, msg); end end endtask
     task frames(input integer n); integer i; begin for (i = 0; i < n; i = i + 1) begin @(posedge clk); while (!dsv) @(posedge clk); end end endtask
     task settle; begin frames(4); repeat (10) @(posedge clk); end endtask
@@ -56,7 +58,13 @@ module tb_de2_115_top;
         bad = 0; repeat (9000) @(posedge clk); settle; check(aiv === 1'b1, "good packets again: AI valid");
         run = 0; repeat (30000) @(posedge clk); settle; check(aiv === 1'b0, "AI packets stop: AI ignored");
         value = 12'hB00; settle; check(safe === 1'b1, "excess force with no AI: safe state");
-        $display("TB tb_de2_115_top: PASS %0d FAIL %0d", pass, fail); $finish;
+        // wrapper-level reset synchroniser, seen at the UART/AI bridge and at the release timing
+        tx_byte(8'hA5); tx_byte(8'h16); @(negedge clk); #4 key[3] = 0; #3 key[3] = 1; repeat (6) @(posedge clk); tx_byte(8'hE9);
+        check(dut.u_bridge.ai_gpio === 16'h0000, "3 ns reset pulse clears a half-received AI packet (the complement byte alone must not complete it)");
+        @(negedge clk); key[3] = 0; repeat (3) @(posedge clk); @(negedge clk); key[3] = 1; #1 check(dut.rst_n === 1'b0, "KEY3 released: wrapper reset still asserted at once");
+        @(posedge clk); #1 check(dut.rst_n === 1'b0, "wrapper reset still asserted one clock after KEY3 release (two-stage synchroniser)");
+        @(posedge clk); #1 check(dut.rst_n === 1'b1, "wrapper reset released two clocks after KEY3 release");
+        check(smon.viol == 0, "safety_monitor: no invariant violation in any scenario"); $display("TB tb_de2_115_top: PASS %0d FAIL %0d VECTORS 0 NOTE directed board-wrapper scenarios; DEBOUNCE_CLKS=4", pass, fail); $finish;
     end
     initial begin #100_000_000; $display("TB tb_de2_115_top: TIMEOUT"); $finish; end
 endmodule

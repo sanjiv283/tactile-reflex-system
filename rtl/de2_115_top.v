@@ -1,5 +1,6 @@
 // de2_115_top: Terasic DE2-115 (Cyclone IV E EP4CE115, 50 MHz). AI/ML runs on a laptop over the RS-232 port.
-//   KEY[3] reset, KEY[1] fault clear, KEY[0] e-stop (pressed = stop), plus an external NC e-stop on ESTOP_EXT_N.
+//   KEY[3] reset (async assert, synchronised release, not debounced), KEY[1] fault clear (synchronised, debounced, one pulse per deliberate press),
+//   KEY[0] e-stop (pressed = stop; 2-flop synchroniser only, NOT debounced: the stop path stays fast), plus an external NC e-stop on ESTOP_EXT_N.
 //   ADC (Pmod AD1 or any AD7476A) and PWM / debug pins are on the 40-pin GPIO header (3.3 V).
 module de2_115_top #(
     parameter CLKS_PER_BIT = 434,      // 115200 baud at 50 MHz
@@ -7,7 +8,8 @@ module de2_115_top #(
     parameter AI_TIMEOUT   = 500000,   // 10 ms without a valid AI packet -> AI ignored
     parameter LUT_FILE     = "rtl/force_lut.mem",
     parameter PRED_EN      = 1,
-    parameter PRED_WIN     = 150000
+    parameter PRED_WIN     = 150000,
+    parameter DEBOUNCE_CLKS = 1000000  // fault-clear key: 20 ms at 50 MHz (testbenches use a small value)
 ) (
     input  wire        CLOCK_50,
     input  wire [3:0]  KEY,
@@ -24,18 +26,21 @@ module de2_115_top #(
     output wire        DBG_SAFE_STATE
 );
     wire [15:0] ai_gpio;
+    wire rst_n, clear_db, clear_pulse;
+    reset_sync u_rst (.clk(CLOCK_50), .arst_n(KEY[3]), .rst_n(rst_n));
+    button_debounce #(.DEBOUNCE_CLKS(DEBOUNCE_CLKS), .ACTIVE_LOW(1)) u_clr (.clk(CLOCK_50), .rst_n(rst_n), .btn_raw(KEY[1]), .pressed(clear_db), .press_pulse(clear_pulse));
     wire [11:0] force_out; wire [7:0] cmd; wire [4:0] trip;
     wire safe, sfault, estop_a, ai_v, ai_ov, pwm, dbg_sv;
 
-    ai_uart_bridge #(.CLKS_PER_BIT(CLKS_PER_BIT)) u_bridge (.clk(CLOCK_50), .rst_n(KEY[3]), .rxd(UART_RXD), .ai_gpio(ai_gpio));
+    ai_uart_bridge #(.CLKS_PER_BIT(CLKS_PER_BIT)) u_bridge (.clk(CLOCK_50), .rst_n(rst_n), .rxd(UART_RXD), .ai_gpio(ai_gpio));
 
     tactile_reflex_top #(.AI_TIMEOUT(AI_TIMEOUT), .LUT_FILE(LUT_FILE), .PRED_EN(PRED_EN), .PRED_WIN(PRED_WIN)) u_core (
-        .clk(CLOCK_50), .rst_n(KEY[3]), .adc_cs_n(ADC_CS_N), .adc_sclk(ADC_SCLK), .adc_miso(ADC_MISO),
-        .estop_n(KEY[0] & ESTOP_EXT_N), .fault_clear(~KEY[1]), .ai_gpio(ai_gpio),
+        .clk(CLOCK_50), .rst_n(rst_n), .adc_cs_n(ADC_CS_N), .adc_sclk(ADC_SCLK), .adc_miso(ADC_MISO),
+        .estop_n(KEY[0] & ESTOP_EXT_N), .fault_clear(clear_pulse), .ai_gpio(ai_gpio),
         .pwm_out(pwm), .safe_state(safe), .sensor_fault(sfault), .estop_active(estop_a), .ai_valid(ai_v),
         .dbg_sample_valid(dbg_sv), .force_out(force_out), .cmd_out(cmd), .trip_reason(trip), .ai_overridden(ai_ov));
 
-    telemetry_tx #(.CLKS_PER_BIT(CLKS_PER_BIT), .PERIOD(TX_PERIOD)) u_tele (.clk(CLOCK_50), .rst_n(KEY[3]),
+    telemetry_tx #(.CLKS_PER_BIT(CLKS_PER_BIT), .PERIOD(TX_PERIOD)) u_tele (.clk(CLOCK_50), .rst_n(rst_n),
         .force_code(force_out), .flags({safe, sfault, estop_a, ai_v}), .txd(UART_TXD));
 
     assign PWM_OUT = pwm; assign DBG_SAMPLE_VALID = dbg_sv; assign DBG_SAFE_STATE = safe;

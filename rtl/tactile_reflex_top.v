@@ -50,8 +50,15 @@ module tactile_reflex_top #(
         else begin es <= {es[0], estop_n}; fc <= {fc[0], fault_clear}; end
     end
 
+    // ADC data input: 2-flop synchroniser. CAUTION (hazard H-16, an UNRESOLVED hardware blocker): it delays the data by 2 clocks, so each bit is sampled 4 clocks (80 ns)
+    // after the ADC launches it, and the FIRST bit only 1 clock (20 ns) after chip-select falls (3 clocks / 60 ns without the synchroniser).
+    // Simulation against an idealised delayed ADC model tolerates an ADC output delay of up to 20 ns with it (60 ns without it): tools/adc_timing_sweep.py.
+    // That is not a hardware margin: the real AD7476A output delay and the board/pin delays are UNVERIFIED, so no timing guarantee is claimed. Decision pending.
+    reg [1:0] ms;
+    always @(posedge clk) ms <= {ms[0], adc_miso};
+
     wire [11:0] sample; wire sample_valid, frame_err;
-    adc_interface #(.CLK_DIV(CLK_DIV)) u_adc (.clk(clk), .rst_n(rst_s), .adc_miso(adc_miso),
+    adc_interface #(.CLK_DIV(CLK_DIV)) u_adc (.clk(clk), .rst_n(rst_s), .adc_miso(ms[1]),
         .adc_cs_n(adc_cs_n), .adc_sclk(adc_sclk), .sample(sample), .sample_valid(sample_valid), .frame_err(frame_err));
     assign dbg_sample_valid = sample_valid;
 

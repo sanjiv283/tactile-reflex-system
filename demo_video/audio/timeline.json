@@ -1,0 +1,408 @@
+{
+ "total": 425.6666,
+ "fps": 30,
+ "scenes": [
+  {
+   "id": "s1",
+   "title": "INTRODUCTION",
+   "num": 1,
+   "start": 0.0,
+   "dur": 19.2667,
+   "frames": 578,
+   "beats": [
+    {
+     "cap": "Tactile Reflex System.",
+     "speech": "Tactile Reflex System.",
+     "t0": 0.8,
+     "t1": 2.443,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s1_01.wav"
+    },
+    {
+     "cap": "A deterministic, FPGA-based safety reflex for robotic gripping.",
+     "speech": "A deterministic, F P G A based safety reflex for robotic gripping.",
+     "t0": 2.863,
+     "t1": 7.276,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s1_02.wav"
+    },
+    {
+     "cap": "When a gripper squeezes too hard, the decision to stop must not wait for software.",
+     "speech": "When a gripper squeezes too hard, the decision to stop must not wait for software.",
+     "t0": 7.696,
+     "t1": 12.692,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s1_03.wav"
+    },
+    {
+     "cap": "Everything in this video is simulation. No physical hardware was tested.",
+     "speech": "Everything in this video is simulation. No physical hardware was tested.",
+     "t0": 13.112,
+     "t1": 17.854,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s1_04.wav"
+    }
+   ]
+  },
+  {
+   "id": "s2",
+   "title": "THE PROBLEM",
+   "num": 2,
+   "start": 19.2667,
+   "dur": 39.5667,
+   "frames": 1187,
+   "beats": [
+    {
+     "cap": "A gripper has two jobs: understand what it is touching, and react at once when the force is too high.",
+     "speech": "A gripper has two jobs: understand what it is touching, and react at once when the force is too high.",
+     "t0": 0.8,
+     "t1": 6.925,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s2_01.wav"
+    },
+    {
+     "cap": "Software control loops add latency that varies: scheduling, communication, and inference time.",
+     "speech": "Software control loops add latency that varies: scheduling, communication, and inference time.",
+     "t0": 7.345,
+     "t1": 13.941,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s2_02.wav"
+    },
+    {
+     "cap": "Here, the decision tree runs on a laptop. On the development host its walk averages 11.6 microseconds and peaked at 96.5, before any serial link delay.",
+     "speech": "Here, the decision tree runs on a laptop. On the development host its walk averages eleven point six microseconds, and peaked at ninety six point five, before any serial link delay.",
+     "t0": 14.361,
+     "t1": 26.732,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s2_03.wav"
+    },
+    {
+     "cap": "So the work is split. The AI advises. Fixed hardware logic protects.",
+     "speech": "So the work is split. The A I advises. Fixed hardware logic protects.",
+     "t0": 27.152,
+     "t1": 32.321,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s2_04.wav"
+    },
+    {
+     "cap": "The AI can only lower the command, never raise it, and the hard limits ignore it completely.",
+     "speech": "The A I can only lower the command, never raise it, and the hard limits ignore it completely.",
+     "t0": 32.741,
+     "t1": 38.154,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s2_05.wav"
+    }
+   ]
+  },
+  {
+   "id": "s3",
+   "title": "SYSTEM ARCHITECTURE",
+   "num": 3,
+   "start": 58.8333,
+   "dur": 55.8333,
+   "frames": 1675,
+   "beats": [
+    {
+     "cap": "A force sensor feeds a 12-bit AD7476A converter over SPI.",
+     "speech": "A force sensor feeds a twelve bit A D 7 4 7 6 A converter over S P I.",
+     "t0": 0.8,
+     "t1": 6.267,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s3_01.wav"
+    },
+    {
+     "cap": "The ADC interface reads one 16-bit frame: four leading zeros, then twelve data bits.",
+     "speech": "The A D C interface reads one sixteen bit frame: four leading zeros, then twelve data bits.",
+     "t0": 6.687,
+     "t1": 13.028,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s3_02.wav"
+    },
+    {
+     "cap": "Input conditioning registers the sample and flags invalid readings.",
+     "speech": "Input conditioning registers the sample and flags invalid readings.",
+     "t0": 13.448,
+     "t1": 17.49,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s3_03.wav"
+    },
+    {
+     "cap": "A fixed 256-entry lookup table turns force into a PWM duty command.",
+     "speech": "A fixed two hundred fifty six entry lookup table turns force into a P W M duty command.",
+     "t0": 17.91,
+     "t1": 24.143,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s3_04.wav"
+    },
+    {
+     "cap": "The safety governor enforces the limits and can force a safe state.",
+     "speech": "The safety governor enforces the limits and can force a safe state.",
+     "t0": 24.563,
+     "t1": 28.568,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s3_05.wav"
+    },
+    {
+     "cap": "The PWM generator drives the DRV8871 motor driver.",
+     "speech": "The P W M generator drives the D R V 8 8 7 1 motor driver.",
+     "t0": 28.988,
+     "t1": 33.763,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s3_06.wav"
+    },
+    {
+     "cap": "A fault handler and the emergency stop feed the governor directly.",
+     "speech": "A fault handler and the emergency stop feed the governor directly.",
+     "t0": 34.183,
+     "t1": 38.104,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s3_07.wav"
+    },
+    {
+     "cap": "The advisory AI path arrives over UART, is integrity checked, and can only lower the command.",
+     "speech": "The advisory A I path arrives over you art, is integrity checked, and can only lower the command.",
+     "t0": 38.524,
+     "t1": 44.231,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s3_08.wav"
+    },
+    {
+     "cap": "The target is a Terasic DE2-115 board at 50 megahertz. This is the prototype design; no physical validation is part of this work.",
+     "speech": "The target is a Terasic D E 2 115 board at 50 megahertz. This is the prototype design; no physical validation is part of this work.",
+     "t0": 44.651,
+     "t1": 54.421,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s3_09.wav"
+    }
+   ]
+  },
+  {
+   "id": "s4",
+   "title": "HOW IT WORKS: THE RTL",
+   "num": 4,
+   "start": 114.6667,
+   "dur": 56.2667,
+   "frames": 1688,
+   "beats": [
+    {
+     "cap": "In the ADC interface, a counter makes the SPI clock, samples on the falling edge, and shifts in sixteen bits. One frame takes 104 clock cycles: 2.08 microseconds.",
+     "speech": "In the A D C interface, a counter makes the S P I clock, samples on the falling edge, and shifts in sixteen bits. One frame takes 104 clock cycles: 2.08 microseconds.",
+     "t0": 0.8,
+     "t1": 13.942,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s4_01.wav"
+    },
+    {
+     "cap": "A reading with a frame error, or at or above hex F F 0, is flagged invalid.",
+     "speech": "A reading with a frame error, or at or above hex F F zero, is flagged invalid.",
+     "t0": 14.362,
+     "t1": 19.41,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s4_02.wav"
+    },
+    {
+     "cap": "The lookup table indexes on the top eight bits of the force code. No contact commands 180. The command ramps down to a hold level of 60, then to zero at the force limit.",
+     "speech": "The lookup table indexes on the top eight bits of the force code. No contact commands 180. The command ramps down to a hold level of 60, then to zero at the force limit.",
+     "t0": 19.83,
+     "t1": 31.737,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s4_03.wav"
+    },
+    {
+     "cap": "The governor ORs every trip cause: force over limit, sensor fault, emergency stop, invalid reading, not yet armed, and predicted over-force. Any one forces the command to zero.",
+     "speech": "The governor ors every trip cause: force over limit, sensor fault, emergency stop, invalid reading, not yet armed, and predicted over-force. Any one forces the command to zero.",
+     "t0": 32.157,
+     "t1": 44.462,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s4_04.wav"
+    },
+    {
+     "cap": "The PWM generator is a 12-bit counter: 12.2 kilohertz at 50 megahertz. The kill input forces the output low on the next clock.",
+     "speech": "The P W M generator is a twelve bit counter: 12.2 kilohertz at 50 megahertz. The kill input forces the output low on the next clock.",
+     "t0": 44.882,
+     "t1": 54.838,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s4_05.wav"
+    }
+   ]
+  },
+  {
+   "id": "s5",
+   "title": "SAFETY DEMONSTRATIONS",
+   "num": 5,
+   "start": 170.9333,
+   "dur": 97.7,
+   "frames": 2931,
+   "beats": [
+    {
+     "cap": "First, the force limit. The AI claims a normal grip, but force jumps above the limit of 2560 counts. The governor enters the safe state, PWM goes low, and the AI is overridden.",
+     "speech": "First, the force limit. The A I claims a normal grip, but force jumps above the limit of 2560 counts. The governor enters the safe state, P W M goes low, and the A I is overridden.",
+     "t0": 0.8,
+     "t1": 14.377,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s5_01.wav"
+    },
+    {
+     "cap": "Second, predictive trip. On a fast ramp the governor watches the rise per three millisecond window. In the RTL replay it tripped at a force code of 2015, twelve steps before the limit was crossed at 2569.",
+     "speech": "Second, predictive trip. On a fast ramp the governor watches the rise per three millisecond window. In the R T L replay it tripped at a force code of 2015, twelve steps before the limit was crossed at 2569.",
+     "t0": 14.797,
+     "t1": 30.763,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s5_02.wav"
+    },
+    {
+     "cap": "The price is occasional early trips: on the simulated test episodes, 6.5 percent of episodes that never reached the limit still tripped early.",
+     "speech": "The price is occasional early trips: on the simulated test episodes, 6.5 percent of episodes that never reached the limit still tripped early.",
+     "t0": 31.183,
+     "t1": 40.535,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s5_03.wav"
+    },
+    {
+     "cap": "Third, hysteresis. After a trip the output stays inhibited until force falls below 2304. A force of 2304 still holds. 2303 releases.",
+     "speech": "Third, hysteresis. After a trip the output stays inhibited until force falls below 2304. A force of 2304 still holds. 2303 releases.",
+     "t0": 40.955,
+     "t1": 54.76,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s5_04.wav"
+    },
+    {
+     "cap": "Fourth, the emergency stop. Safe state rises in four clock cycles and PWM is low in five: 100 nanoseconds. It stays latched until an operator clears it.",
+     "speech": "Fourth, the emergency stop. Safe state rises in four clock cycles and P W M is low in five: 100 nanoseconds. It stays latched until an operator clears it.",
+     "t0": 55.18,
+     "t1": 66.833,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s5_05.wav"
+    },
+    {
+     "cap": "Fifth, invalid sensor input. One corrupted ADC frame inhibits the drive for exactly one frame and latches nothing. Four consecutive bad frames latch a sensor fault until an operator clears it.",
+     "speech": "Fifth, invalid sensor input. One corrupted A D C frame inhibits the drive for exactly one frame and latches nothing. Four consecutive bad frames latch a sensor fault until an operator clears it.",
+     "t0": 67.253,
+     "t1": 80.388,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s5_06.wav"
+    },
+    {
+     "cap": "If samples stop arriving, a watchdog raises the fault at 2000 clock cycles, which is 40 microseconds.",
+     "speech": "If samples stop arriving, a watchdog raises the fault at 2000 clock cycles, which is 40 microseconds.",
+     "t0": 80.808,
+     "t1": 88.132,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s5_07.wav"
+    },
+    {
+     "cap": "In every case the outcome is the same: PWM low, safe state asserted, and no recovery without the right conditions.",
+     "speech": "In every case the outcome is the same: P W M low, safe state asserted, and no recovery without the right conditions.",
+     "t0": 88.552,
+     "t1": 96.286,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s5_08.wav"
+    }
+   ]
+  },
+  {
+   "id": "s6",
+   "title": "EXPERIMENTAL RESULTS",
+   "num": 6,
+   "start": 268.6333,
+   "dur": 103.4333,
+   "frames": 3103,
+   "beats": [
+    {
+     "cap": "Now the evidence. All 175 directed checks across 12 testbenches pass in the existing RTL regression.",
+     "speech": "Now the evidence. All 175 directed checks across 12 testbenches pass in the existing R T L regression.",
+     "t0": 0.8,
+     "t1": 9.064,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s6_01.wav"
+    },
+    {
+     "cap": "One thousand eight hundred test vectors were replayed through the RTL twice: once with the real decision tree, once with an AI that always claims normal grip. Both gave zero safe-state violations.",
+     "speech": "One thousand eight hundred test vectors were replayed through the R T L twice: once with the real decision tree, once with an A I that always claims normal grip. Both gave zero safe-state violations.",
+     "t0": 9.484,
+     "t1": 21.642,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s6_02.wav"
+    },
+    {
+     "cap": "A separate experiment ran 15 scenarios and 159 checks. A software model met all 159. The RTL met 157; the two misses come from a stimulus that lasted about 240 ADC frames instead of one. A threshold-only baseline met 93, by design, because it has no hysteresis, fault, or stop handling.",
+     "speech": "A separate experiment ran 15 scenarios and 159 checks. A software model met all 159. The R T L met 157; the two misses come from a stimulus that lasted about 240 A D C frames instead of one. A threshold-only baseline met 93, by design, because it has no hysteresis, fault, or stop handling.",
+     "t0": 22.062,
+     "t1": 47.635,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s6_03.wav"
+    },
+    {
+     "cap": "On a noisy crossing near the limit, the baseline toggled seven times. The hysteresis design inhibited once.",
+     "speech": "On a noisy crossing near the limit, the baseline toggled seven times. The hysteresis design inhibited once.",
+     "t0": 48.055,
+     "t1": 54.88,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s6_04.wav"
+    },
+    {
+     "cap": "In simulation, a valid sample reaches PWM low in four clock cycles, 80 nanoseconds. An input change takes 105 to 192 cycles, mostly waiting for the next ADC frame.",
+     "speech": "In simulation, a valid sample reaches P W M low in four clock cycles, 80 nanoseconds. An input change takes 105 to 192 cycles, mostly waiting for the next A D C frame.",
+     "t0": 55.3,
+     "t1": 69.227,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s6_05.wav"
+    },
+    {
+     "cap": "Frame by frame, 577 comparisons between the model and the RTL showed no differences.",
+     "speech": "Frame by frame, 577 comparisons between the model and the R T L showed no differences.",
+     "t0": 69.647,
+     "t1": 76.777,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s6_06.wav"
+    },
+    {
+     "cap": "The decision tree reaches 91.9 percent accuracy on the simulated dataset, against 85.4 for a force-only baseline.",
+     "speech": "The decision tree reaches 91.9 percent accuracy on the simulated dataset, against 85.4 for a force-only baseline.",
+     "t0": 77.197,
+     "t1": 85.913,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s6_07.wav"
+    },
+    {
+     "cap": "What this does not establish: physical safety. Inputs are synthetic, the ADC is a behavioural model, the AI dataset is simulated, 13 step-level model differences remain explained but not removed, and the Wokwi demonstration has not been run.",
+     "speech": "What this does not establish: physical safety. Inputs are synthetic, the A D C is a behavioural model, the A I dataset is simulated, 13 step-level model differences remain explained but not removed, and the Wokwi demonstration has not been run.",
+     "t0": 86.333,
+     "t1": 102.032,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s6_08.wav"
+    }
+   ]
+  },
+  {
+   "id": "s7",
+   "title": "END-TO-END WORKFLOW",
+   "num": 7,
+   "start": 372.0667,
+   "dur": 18.9667,
+   "frames": 569,
+   "beats": [
+    {
+     "cap": "Putting it together. A valid ADC sample arrives.",
+     "speech": "Putting it together. A valid A D C sample arrives.",
+     "t0": 0.8,
+     "t1": 4.242,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s7_01.wav"
+    },
+    {
+     "cap": "One clock cycle each: conditioning, lookup, governor, and PWM.",
+     "speech": "One clock cycle each: conditioning, lookup, governor, and P W M.",
+     "t0": 4.662,
+     "t1": 9.826,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s7_02.wav"
+    },
+    {
+     "cap": "Four cycles later, if any limit is exceeded, the output is low. The AI can advise, but it cannot override.",
+     "speech": "Four cycles later, if any limit is exceeded, the output is low. The A I can advise, but it cannot override.",
+     "t0": 10.246,
+     "t1": 17.553,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s7_03.wav"
+    }
+   ]
+  },
+  {
+   "id": "s8",
+   "title": "CLOSING",
+   "num": 8,
+   "start": 391.0333,
+   "dur": 34.6333,
+   "frames": 1039,
+   "beats": [
+    {
+     "cap": "Tactile Reflex System.",
+     "speech": "Tactile Reflex System.",
+     "t0": 0.8,
+     "t1": 2.443,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s8_01.wav"
+    },
+    {
+     "cap": "An advisory-only AI, checked with an always-wrong AI. A slope-predictive pre-limit in plain hardware. A self-checking AI link. An instant PWM kill with a latched, fail-safe stop.",
+     "speech": "An advisory-only A I, checked with an always-wrong A I. A slope-predictive pre-limit in plain hardware. A self-checking A I link. An instant P W M kill with a latched, fail-safe stop.",
+     "t0": 2.863,
+     "t1": 15.419,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s8_02.wav"
+    },
+    {
+     "cap": "These are design-level descriptions, not prior-art conclusions.",
+     "speech": "These are design-level descriptions, not prior-art conclusions.",
+     "t0": 15.839,
+     "t1": 19.788,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s8_03.wav"
+    },
+    {
+     "cap": "Proposed next steps, not done: Quartus synthesis and timing, board bring-up, recorded sensor data, and the Wokwi run.",
+     "speech": "Proposed next steps, not done: Quartus synthesis and timing, board bring-up, recorded sensor data, and the Wokwi run.",
+     "t0": 20.208,
+     "t1": 29.024,
+     "file": "/home/user/tactile-reflex-system/demo_video/audio/narration/s8_04.wav"
+    }
+   ]
+  }
+ ]
+}

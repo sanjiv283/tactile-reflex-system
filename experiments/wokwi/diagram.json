@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "author": "tactile-reflex-system experiments",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-potentiometer", "id": "pot", "top": -110, "left": 120, "attrs": {} },
+    { "type": "wokwi-pushbutton", "id": "btn_estop", "top": 120, "left": 200, "attrs": { "color": "red", "label": "E-STOP" } },
+    { "type": "wokwi-pushbutton", "id": "btn_clear", "top": 190, "left": 200, "attrs": { "color": "blue", "label": "CLEAR" } },
+    { "type": "wokwi-led", "id": "led_red", "top": -90, "left": -120, "attrs": { "color": "red", "label": "SAFE" } },
+    { "type": "wokwi-led", "id": "led_green", "top": -90, "left": -80, "attrs": { "color": "green", "label": "OK" } },
+    { "type": "wokwi-led", "id": "led_yellow", "top": -90, "left": -40, "attrs": { "color": "yellow", "label": "FAULT" } },
+    { "type": "wokwi-led", "id": "led_pwm", "top": -90, "left": 0, "attrs": { "color": "white", "label": "DRIVE(PWM)" } },
+    { "type": "wokwi-resistor", "id": "r1", "top": -40, "left": -120, "attrs": { "value": "330" } },
+    { "type": "wokwi-resistor", "id": "r2", "top": -40, "left": -80, "attrs": { "value": "330" } },
+    { "type": "wokwi-resistor", "id": "r3", "top": -40, "left": -40, "attrs": { "value": "330" } },
+    { "type": "wokwi-resistor", "id": "r4", "top": -40, "left": 0, "attrs": { "value": "330" } }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+    [ "pot:VCC", "esp:3V3", "red", [] ],
+    [ "pot:GND", "esp:GND.1", "black", [] ],
+    [ "pot:SIG", "esp:D34", "green", [] ],
+    [ "btn_estop:1.l", "esp:D32", "red", [] ],
+    [ "btn_estop:2.l", "esp:GND.1", "black", [] ],
+    [ "btn_clear:1.l", "esp:D33", "blue", [] ],
+    [ "btn_clear:2.l", "esp:GND.1", "black", [] ],
+    [ "esp:D26", "r1:1", "red", [] ], [ "r1:2", "led_red:A", "red", [] ], [ "led_red:C", "esp:GND.1", "black", [] ],
+    [ "esp:D27", "r2:1", "green", [] ], [ "r2:2", "led_green:A", "green", [] ], [ "led_green:C", "esp:GND.1", "black", [] ],
+    [ "esp:D25", "r3:1", "yellow", [] ], [ "r3:2", "led_yellow:A", "yellow", [] ], [ "led_yellow:C", "esp:GND.1", "black", [] ],
+    [ "esp:D18", "r4:1", "white", [] ], [ "r4:2", "led_pwm:A", "white", [] ], [ "led_pwm:C", "esp:GND.1", "black", [] ]
+  ],
+  "dependencies": {}
+}

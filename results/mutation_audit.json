@@ -1,0 +1,851 @@
+{
+ "mutants": 49,
+ "applied_and_compiled": 49,
+ "killed_by_failed_assertion": 49,
+ "not_proven": [],
+ "real_rtl_tb_unchanged": true,
+ "robustness_targets": {
+  "M06": {
+   "min_assert": 2,
+   "min_tbs": 1,
+   "failing_assertions": 2,
+   "n_testbenches": 1,
+   "met": true
+  },
+  "M11": {
+   "min_assert": 2,
+   "min_tbs": 2,
+   "failing_assertions": 88,
+   "n_testbenches": 2,
+   "met": true
+  },
+  "M17": {
+   "min_assert": 2,
+   "min_tbs": 2,
+   "failing_assertions": 3,
+   "n_testbenches": 2,
+   "met": true
+  },
+  "M25": {
+   "min_assert": 2,
+   "min_tbs": 2,
+   "failing_assertions": 66,
+   "n_testbenches": 2,
+   "met": true
+  },
+  "M40": {
+   "min_assert": 2,
+   "min_tbs": 2,
+   "failing_assertions": 7,
+   "n_testbenches": 2,
+   "met": true
+  },
+  "M41": {
+   "min_assert": 2,
+   "min_tbs": 2,
+   "failing_assertions": 3,
+   "n_testbenches": 3,
+   "met": true
+  }
+ },
+ "killed_by_one_testbench_only": [
+  "M01",
+  "M06",
+  "M07",
+  "M12",
+  "M14",
+  "M23",
+  "M26",
+  "M27",
+  "M28",
+  "M34",
+  "M35",
+  "M38",
+  "M48"
+ ],
+ "killed_by_one_assertion_only": [],
+ "detail": [
+  {
+   "id": "M01",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 5,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor"
+   ]
+  },
+  {
+   "id": "M02",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 2,
+   "n_testbenches": 2,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top"
+   ]
+  },
+  {
+   "id": "M03",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 3822,
+   "n_testbenches": 7,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top",
+    "tb_de2_115_top",
+    "tb_pred_system",
+    "tb_replay",
+    "tb_replay_adversarial",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M04",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 5,
+   "n_testbenches": 3,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M05",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 4,
+   "n_testbenches": 3,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M06",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 2,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor"
+   ]
+  },
+  {
+   "id": "M07",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 2,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_pred_system"
+   ]
+  },
+  {
+   "id": "M08",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 5,
+   "n_testbenches": 3,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top",
+    "tb_de2_115_top"
+   ]
+  },
+  {
+   "id": "M09",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 3,
+   "n_testbenches": 4,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top",
+    "tb_de2_115_top",
+    "tb_replay"
+   ]
+  },
+  {
+   "id": "M10",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 6,
+   "n_testbenches": 7,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top",
+    "tb_de2_115_top",
+    "tb_pred_system",
+    "tb_replay",
+    "tb_replay_adversarial",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M11",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 88,
+   "n_testbenches": 2,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_replay"
+   ]
+  },
+  {
+   "id": "M12",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 5,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_pred_governor"
+   ]
+  },
+  {
+   "id": "M13",
+   "file": "rtl/pwm_generator.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 112,
+   "n_testbenches": 4,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_pwm_generator",
+    "tb_top",
+    "tb_de2_115_top",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M14",
+   "file": "rtl/fault_handler.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 2,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_fault_handler"
+   ]
+  },
+  {
+   "id": "M15",
+   "file": "rtl/fault_handler.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 2,
+   "n_testbenches": 2,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_fault_handler",
+    "tb_top"
+   ]
+  },
+  {
+   "id": "M16",
+   "file": "rtl/fault_handler.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 7,
+   "n_testbenches": 3,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_fault_handler",
+    "tb_top",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M17",
+   "file": "rtl/input_conditioning.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 3,
+   "n_testbenches": 2,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_input_conditioning",
+    "tb_top"
+   ]
+  },
+  {
+   "id": "M18",
+   "file": "rtl/adc_interface.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 8,
+   "n_testbenches": 3,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_adc_interface",
+    "tb_top",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M19",
+   "file": "rtl/ai_control_interface.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 2,
+   "n_testbenches": 2,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_ai_control_interface",
+    "tb_top"
+   ]
+  },
+  {
+   "id": "M20",
+   "file": "rtl/ai_control_interface.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 4,
+   "n_testbenches": 3,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_ai_control_interface",
+    "tb_top",
+    "tb_de2_115_top"
+   ]
+  },
+  {
+   "id": "M21",
+   "file": "rtl/force_lut.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 26,
+   "n_testbenches": 5,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_force_lut",
+    "tb_top",
+    "tb_de2_115_top",
+    "tb_replay",
+    "tb_replay_adversarial"
+   ]
+  },
+  {
+   "id": "M22",
+   "file": "rtl/tactile_reflex_top.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 8,
+   "n_testbenches": 2,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_top",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M23",
+   "file": "rtl/uart_rx.v",
+   "applied": true,
+   "changed_lines": 4,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 12,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_uart_framing"
+   ]
+  },
+  {
+   "id": "M24",
+   "file": "rtl/ai_uart_bridge.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 19,
+   "n_testbenches": 4,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_uart_link",
+    "tb_uart_framing",
+    "tb_de2_115_top",
+    "tb_host_link"
+   ]
+  },
+  {
+   "id": "M25",
+   "file": "rtl/telemetry_tx.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 66,
+   "n_testbenches": 2,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_de2_115_top",
+    "tb_telemetry_tx"
+   ]
+  },
+  {
+   "id": "M26",
+   "file": "rtl/de2_115_top.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 4,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M27",
+   "file": "rtl/uart_rx.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 2,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_uart_framing"
+   ]
+  },
+  {
+   "id": "M28",
+   "file": "rtl/uart_rx.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 2,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_uart_framing"
+   ]
+  },
+  {
+   "id": "M29",
+   "file": "rtl/uart_tx.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 147,
+   "n_testbenches": 5,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_uart_link",
+    "tb_uart_framing",
+    "tb_de2_115_top",
+    "tb_host_link",
+    "tb_telemetry_tx"
+   ]
+  },
+  {
+   "id": "M30",
+   "file": "rtl/uart_tx.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 335,
+   "n_testbenches": 5,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_uart_link",
+    "tb_uart_framing",
+    "tb_de2_115_top",
+    "tb_host_link",
+    "tb_telemetry_tx"
+   ]
+  },
+  {
+   "id": "M31",
+   "file": "rtl/uart_tx.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 149,
+   "n_testbenches": 5,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_uart_link",
+    "tb_uart_framing",
+    "tb_de2_115_top",
+    "tb_host_link",
+    "tb_telemetry_tx"
+   ]
+  },
+  {
+   "id": "M32",
+   "file": "rtl/uart_rx.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 232,
+   "n_testbenches": 5,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_uart_link",
+    "tb_uart_framing",
+    "tb_de2_115_top",
+    "tb_host_link",
+    "tb_telemetry_tx"
+   ]
+  },
+  {
+   "id": "M33",
+   "file": "rtl/uart_tx.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 200,
+   "n_testbenches": 4,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_uart_link",
+    "tb_uart_framing",
+    "tb_host_link",
+    "tb_telemetry_tx"
+   ]
+  },
+  {
+   "id": "M35",
+   "file": "rtl/uart_rx.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 2,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_uart_framing"
+   ]
+  },
+  {
+   "id": "M34",
+   "file": "rtl/uart_rx.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 3,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_uart_framing"
+   ]
+  },
+  {
+   "id": "M36",
+   "file": "rtl/button_debounce.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 3,
+   "n_testbenches": 2,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_reset_recovery",
+    "tb_debounce"
+   ]
+  },
+  {
+   "id": "M37",
+   "file": "rtl/button_debounce.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 13,
+   "n_testbenches": 3,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_de2_115_top",
+    "tb_reset_recovery",
+    "tb_debounce"
+   ]
+  },
+  {
+   "id": "M38",
+   "file": "rtl/de2_115_top.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 6,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M39",
+   "file": "rtl/de2_115_top.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 6,
+   "n_testbenches": 2,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_de2_115_top",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M40",
+   "file": "rtl/de2_115_top.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 7,
+   "n_testbenches": 2,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_de2_115_top",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M41",
+   "file": "rtl/reset_sync.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 3,
+   "n_testbenches": 3,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_de2_115_top",
+    "tb_reset_recovery",
+    "tb_debounce"
+   ]
+  },
+  {
+   "id": "M42",
+   "file": "rtl/pwm_generator.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 112,
+   "n_testbenches": 4,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_pwm_generator",
+    "tb_top",
+    "tb_de2_115_top",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M43",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 6,
+   "n_testbenches": 7,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top",
+    "tb_de2_115_top",
+    "tb_pred_system",
+    "tb_replay",
+    "tb_replay_adversarial",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M44",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 4,
+   "n_testbenches": 3,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M45",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 3,
+   "n_testbenches": 4,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top",
+    "tb_replay",
+    "tb_replay_adversarial"
+   ]
+  },
+  {
+   "id": "M46",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 639,
+   "n_testbenches": 6,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top",
+    "tb_de2_115_top",
+    "tb_pred_system",
+    "tb_replay",
+    "tb_replay_adversarial"
+   ]
+  },
+  {
+   "id": "M47",
+   "file": "rtl/safety_governor.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 21,
+   "n_testbenches": 7,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_safety_governor",
+    "tb_top",
+    "tb_de2_115_top",
+    "tb_pred_system",
+    "tb_replay",
+    "tb_replay_adversarial",
+    "tb_reset_recovery"
+   ]
+  },
+  {
+   "id": "M48",
+   "file": "rtl/pwm_generator.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 2,
+   "n_testbenches": 1,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_pwm_generator"
+   ]
+  },
+  {
+   "id": "M49",
+   "file": "rtl/pwm_generator.v",
+   "applied": true,
+   "changed_lines": 2,
+   "compiles": true,
+   "regression_failed": true,
+   "failing_assertions": 9,
+   "n_testbenches": 2,
+   "killed_by_assertion": true,
+   "detected_by": [
+    "tb_pwm_generator",
+    "tb_top"
+   ]
+  }
+ ]
+}

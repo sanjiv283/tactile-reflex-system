@@ -1,4 +1,22 @@
+# --- generated build outputs (all regenerable; never commit) ---
 sim/build/
-sim/*.vvp
+*.vvp
 __pycache__/
 *.pyc
+*.pkl
+*.vcd
+.venv/
+venv/
+.pytest_cache/
+# --- regenerable experiment intermediates (the logs/CSV/JSON in experiments/**/results*/ are KEPT as evidence) ---
+experiments/**/build/
+experiments/**/build_*/
+experiments/**/stim/
+experiments/**/model_host
+experiments/**/*.vvp
+# --- regenerable video intermediates (the MP4, SRT, transcript and FLAC mix are kept) ---
+demo_video/audio/narration/*.wav
+demo_video/audio/mix.wav
+
+# generated Quartus project
+quartus_build/

@@ -1,0 +1,21 @@
+# Regression manifest: id | testbench file | extra vvp plusargs | name the testbench prints in its "TB <name>:" summary line
+# Every entry MUST print exactly one summary line, with at least one assertion executed. tools/run_regression.py enforces this.
+adc_interface        | tb/tb_adc_interface.v        |              | tb_adc_interface
+input_conditioning   | tb/tb_input_conditioning.v   |              | tb_input_conditioning
+force_lut            | tb/tb_force_lut.v            |              | tb_force_lut
+safety_governor      | tb/tb_safety_governor.v      |              | tb_safety_governor
+pwm_generator        | tb/tb_pwm_generator.v        |              | tb_pwm_generator
+fault_handler        | tb/tb_fault_handler.v        |              | tb_fault_handler
+ai_control_interface | tb/tb_ai_control_interface.v |              | tb_ai_control_interface
+uart_link            | tb/tb_uart_link.v            |              | tb_uart_link
+uart_framing         | tb/tb_uart_framing.v         |              | tb_uart_framing
+top                  | tb/tb_top.v                  |              | tb_top
+de2_115_top          | tb/tb_de2_115_top.v          |              | tb_de2_115_top
+pred_governor        | tb/tb_pred_governor.v        |              | tb_pred_governor
+pred_system          | tb/tb_pred_system.v          |              | tb_pred_system
+replay               | tb/tb_replay.v               |              | tb_replay
+replay_adversarial   | tb/tb_replay.v               | +ADVERSARIAL | tb_replay_adversarial
+reset_recovery | tb/tb_reset_recovery.v | | tb_reset_recovery
+debounce | tb/tb_debounce.v | | tb_debounce
+host_link | tb/tb_host_link.v | | tb_host_link
+telemetry_tx | tb/tb_telemetry_tx.v | | tb_telemetry_tx

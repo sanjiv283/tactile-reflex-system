@@ -25,6 +25,10 @@ module tb_safety_governor;
         step(12'hA00, 8'd0); check(safe == 1 && cmd == 0 && tr[0] == 1, "FORCE_MAX trips safe state");
         check(aio == 1, "AI 'normal grip' overridden by hard limit");
         aic = 3; step(12'hA00, 8'd0); check(aio == 0, "no override flag when AI also predicted excess");
+        aic = 0; step(12'hA00, 8'd0); check(aio == 1, "override flag set for AI class 0 at the hard limit");
+        aic = 1; step(12'hA00, 8'd0); check(aio == 1, "override flag set for AI class 1 at the hard limit");
+        aic = 3; es = 1; step(12'h400, 8'd104); check(aio == 0 && safe == 1, "e-stop with AI class 3: still no override flag (only classes 0-2 count as overridden)"); es = 0;
+        aiv = 0; aic = 0; step(12'hA00, 8'd0); check(aio == 0, "no override flag when the AI result is invalid"); aiv = 1; aic = 2;
         step(12'h950, 8'd0); check(safe == 1, "hysteresis: still safe between REL and MAX");
         step(12'h8FF, 8'd30); check(safe == 0 && cmd != 0, "releases below FORCE_REL");
         // other hard limits
@@ -34,6 +38,8 @@ module tb_safety_governor;
         ainv = 0; aiv = 1; aic = 0; step(12'h400, 8'd104); check(safe == 0 && cmd == 8'd104, "recovers when causes clear");
         es = 1; @(negedge clk); @(posedge clk); @(posedge clk); #1 check(safe == 1, "e-stop acts without a new sample (level-sensitive)");
         es = 0; rst_n = 0; @(posedge clk); @(posedge clk); #1 check(safe == 1 && cmd == 0, "reset forces safe state");
-        $display("TB tb_safety_governor: PASS %0d FAIL %0d", pass, fail); $finish;
+        rst_n = 1; repeat (6) @(posedge clk); #1 check(safe == 1 && cmd == 0, "after a SECOND reset: still safe for many clocks until the first valid sample (arming is required again)");
+        lc = 8'd104; fc = 12'h400; @(negedge clk); iv = 1; @(negedge clk); iv = 0; repeat (3) @(posedge clk); #1 check(safe == 0 && cmd != 0, "the first valid sample arms the governor");
+        $display("TB tb_safety_governor: PASS %0d FAIL %0d VECTORS 0 NOTE directed assertions only", pass, fail); $finish;
     end
 endmodule

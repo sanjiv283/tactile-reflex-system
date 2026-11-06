@@ -1,0 +1,10 @@
+# Which GPIO-header signal each top-level port uses.  This is a WIRING DESIGN CHOICE, not a measurement: confirm it against how the
+# Pmod AD1 / driver / e-stop are physically connected before you build. The FPGA pin for each GPIO[n] is NOT written here: it is taken
+# from Terasic's own DE2_115.qsf by tools/check_pins.py (never typed from memory).
+ADC_CS_N         = GPIO[0]
+ADC_SCLK         = GPIO[1]
+ADC_MISO         = GPIO[2]
+ESTOP_EXT_N      = GPIO[3]
+PWM_OUT          = GPIO[4]
+DBG_SAMPLE_VALID = GPIO[5]
+DBG_SAFE_STATE   = GPIO[6]

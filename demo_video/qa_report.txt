@@ -1,0 +1,51 @@
+# QA report: Tactile Reflex demo video
+
+Generated 2026-11-03T13:30Z by demo_video/build/qa.py and ffmpeg/ffprobe on the FINAL file demo_video/tactile_reflex_demo.mp4
+
+## 1. Claims vs evidence files (python3 build/qa.py claims)
+PASS 175 directed checks over 12 testbenches, 0 failures
+PASS replay: 1,800 vectors both modes, 0 safe-state violations, 0 cmd above LUT
+PASS predictive RTL vs reference model: 4,720 vectors, 0 mismatches
+PASS logic path 4 cycles, e-stop 5 cycles, input change 105-192
+PASS ADC frame 104 clk = 2080 ns
+PASS experiments: model 159/159, RTL 157/159, baseline 93/159, step mismatches 13/839
+PASS override trace: AI class 2 throughout, force limit crossed then safe_state +2 / PWM low +3 clk
+PASS e-stop trace: safe_state at +4, PWM low at +5 clk
+PASS S08: predictive trip at code 2015 (trip bit 4), limit crossed at 2569, 12 steps = 6.0 ms
+PASS S04: 2304 still inhibited, 2303 released
+PASS S07: baseline 7 toggles, RTL 1
+PASS 1 bad frame (after the reset-hold/clear frames 0-6): exactly frame 17 inhibited, sensor_fault never set
+PASS 4 bad frames: fault latched from frame 20 until clear at 29
+PASS watchdog WD_CYCLES = 2000
+PASS forced-dropout runs 1898-1985 clk
+PASS 577 frame comparisons, 0 differences
+PASS 839 step comparisons, 0 differences
+PASS pred: 25/25 early, mean lead 5.72 ms, 10/155 false early = 6.5%
+PASS tree walk mean 11.6, max 96.5 us; accuracy 91.9% vs 85.4%
+PASS LUT 180 at idx 0, 60 at idx 96, 0 at idx 160
+PASS governor defaults FORCE_MAX 0xA00=2560, FORCE_REL 0x900=2304
+PASS RAIL_HI 0xFF0
+CLAIMS: ALL PASS
+
+## 2. Media, playback and audio/video sync (python3 build/qa.py media tactile_reflex_demo.mp4)
+video h264 1920x1080 30/1 frames=12770 dur=425.667s | audio aac 48000Hz ch=2 dur=425.700s | file 27.0 MB
+timeline total 425.667s  video-audio delta 33 ms  video-vs-timeline delta 0 ms
+speech onsets found 46/46; onset minus scripted start: mean +0.066s  min +0.010s  max +0.150s
+beats outside ±0.30 s: none
+clipped samples: 0  peak: 0.857
+
+## 3. Full decode (ffmpeg -v error -i tactile_reflex_demo.mp4 -f null -)
+decoder errors printed above: none if empty; exit status 0
+
+## 4. Loudness (EBU R128)
+    I:         -16.0 LUFS
+    LRA:         2.0 LU
+
+## 5. Visual review performed
+Frames were extracted from the final MP4 at 28 points across all 8 scenes (title, every architecture build step, each RTL excerpt, every safety demonstration, each results panel, workflow, closing sequence) and inspected as contact sheets. Defects found and fixed before this report: stray panel rectangle (scene 2), marker/label collisions (scenes 3, 5), pulse dot over undrawn blocks (scene 3), label collision on the threshold bar (scene 4), cross-faded closing title (scene 8), 96 kHz audio rate (re-muxed at 48 kHz), wording 'verified' -> 'tested' (scene 8).
+
+## 6. What was NOT verified
+- The narration voice (espeak-ng) was not subjectively auditioned by the author of this report; only loudness, clipping, duration and speech-onset timing were measured.
+- Small text (footer tag 15 px, chart ticks 17-19 px) is legible full-screen at 1080p but small on a phone.
+- Playback in specific players (VLC, browsers, PowerPoint) was not tested; the file is standard H.264 High/yuv420p + AAC-LC 48 kHz with +faststart.
+- A QA check that initially failed ('1 bad frame') was a defect in the check (it ignored the stimulus's deliberate reset-hold frames 0-3), not in the data; it was corrected and the explanation is recorded in the check's name.

@@ -35,7 +35,7 @@ title: "Review script: Latency-Optimal Tactile Reflex System"
 # Presenter 2: circuit, hardware and Governor (slides 7 to 11)
 
 **Slide 7: Circuit diagram (1:00)**
-"This is the wiring schematic. The FSR sits in a voltage divider with a 10 kilo-ohm resistor into the Pmod AD1 ADC, which is wired to the DE2-115 GPIO header over SPI. The FPGA outputs PWM to a DRV8871 driver, which drives the motor from a fused 12 volt supply. The emergency stop is a normally-closed contact, so an open contact or a cut wire reads as stop. The laptop connects over the board's RS-232 port. All grounds are common. The GPIO pin numbers are mapped from the board manual."
+"This is the wiring schematic. The FSR sits in a voltage divider with a 10 kilo-ohm resistor into the Pmod AD1 ADC, which is wired to the DE2-115 GPIO header over SPI. The FPGA outputs PWM to a DRV8871 driver, which drives the motor from a fused 12 volt supply. The emergency stop is a normally-closed contact, so an open contact or a cut wire reads as stop. The laptop connects over the board's RS-232 port. All grounds are common. The GPIO pin numbers are not yet mapped: they still have to be verified against the board manual."
 
 **Slide 8: Hardware, control and sensing (0:50)**
 "The DE2-115 has a Cyclone IV E FPGA, a 50 megahertz clock, an RS-232 port and a 3.3 volt GPIO header. It has no ARM processor, which is why the AI runs on the laptop. The Pmod AD1 gives a 12-bit SPI ADC up to one megasample per second. The FSR 402 is a force-sensing resistor read through a divider."
@@ -52,7 +52,7 @@ title: "Review script: Latency-Optimal Tactile Reflex System"
 # Presenter 3: verification, latency and prediction (slides 12 to 17)
 
 **Slide 12: Verification results (1:00)**
-"All 175 directed checks pass across 12 testbenches. Beyond those we replayed 1,800 vectors from the test set through the RTL twice: once with the model's real output, once with an AI that always claims normal grip. Both runs had zero safety violations. Cases covered include no, light and normal contact, high and excessive force, AI class changes and AI failure, emergency stop, sensor failure, reset, LUT boundaries, PWM, and the predictive pre-limit against its reference model."
+"All 460 directed assertions pass across 16 testbenches. Beyond those we replayed 1,800 vectors from the test set through the RTL twice: once with the model's real output, once with an AI that always claims normal grip. Both runs had zero safety violations. Cases covered include no, light and normal contact, high and excessive force, AI class changes and AI failure, emergency stop, sensor failure, reset, LUT boundaries, PWM, and the predictive pre-limit against its reference model."
 
 **Slide 13: Simulation console (0:30)**
 "This is the actual console output of the run-all script. Every testbench reports PASS with zero failures."
@@ -93,7 +93,7 @@ title: "Review script: Latency-Optimal Tactile Reflex System"
 "Four findings. Eighty-eight of 88 over-limit samples forced safe even against a hostile AI. A four-cycle logic path with zero jitter. The tree beats a force-only baseline, 91.9 to 85.4 percent, on simulated data. And since excessive-force recall is only 72 percent, the hardware limit has to stay authoritative."
 
 **Slide 25: Conclusion (0:30)**
-"In conclusion: a deterministic FPGA path enforces the hard limits, the AI adds contact classification and can only lower the command, and 175 checks plus 3,600 replayed vectors confirm the override behaviour in simulation. Next steps are board bring-up, real FSR data and re-measuring latency and inference time on hardware. Thank you. We are happy to take questions."
+"In conclusion: a deterministic FPGA path enforces the hard limits, the AI adds contact classification and can only lower the command, and 460 directed assertions, 3,600 replayed vectors and a 47-mutant campaign confirm the override behaviour in simulation. Next steps are board bring-up, real FSR data and re-measuring latency and inference time on hardware. Thank you. We are happy to take questions."
 
 # Questions to rehearse
 

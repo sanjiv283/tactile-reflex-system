@@ -1,0 +1,6 @@
+grouped 5-fold CV accuracy 0.926 +/- 0.008  (force-only baseline 0.862)
+held-out accuracy 0.919, 95% CI (episode bootstrap) 0.898..0.939
+label-shuffle control accuracy 0.529 (majority 0.530)
+depth sweep: {1: 0.657, 2: 0.771, 3: 0.897, 4: 0.926, 5: 0.928, 6: 0.931, 7: 0.933, 8: 0.933}
+noise robustness: {'0': 0.9192777777777777, '10': 0.9096111111111111, '20': 0.8785833333333334, '40': 0.8229027777777778, '80': 0.761125}
+excessive-force recall 0.719 | excessive samples below the hard limit: 5096

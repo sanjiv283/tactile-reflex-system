@@ -2,6 +2,10 @@
 // Full path with the slope predictor on (A) and off (B), same ADC ramp. PRED_WIN = 2000 clocks, one ramp step per window.
 module tb_pred_system;
     reg clk = 0, rst_n = 0; always #10 clk = ~clk;
+    safety_monitor #(.NAME("pred_A")) smonA (.clk(clk), .rst_s(A.rst_s), .safe_state(A.safe_state), .pwm_out(A.pwm_out), .cmd_out(A.cmd_out), .lut_cmd(A.lut_cmd),
+        .lut_valid(A.lut_valid), .lut_force(A.lut_force), .estop_active(A.estop_active), .sensor_fault(A.sensor_fault), .adc_invalid(A.adc_invalid));
+    safety_monitor #(.NAME("pred_B")) smonB (.clk(clk), .rst_s(B.rst_s), .safe_state(B.safe_state), .pwm_out(B.pwm_out), .cmd_out(B.cmd_out), .lut_cmd(B.lut_cmd),
+        .lut_valid(B.lut_valid), .lut_force(B.lut_force), .estop_active(B.estop_active), .sensor_fault(B.sensor_fault), .adc_invalid(B.adc_invalid));
     reg [11:0] value = 0; reg clr = 0;
     wire csA, sA, mA, csB, sB, mB, pwmA, pwmB, safeA, safeB, sfA, sfB, esA, esB, aivA, aivB, dvA, dvB, ovA, ovB;
     wire [7:0] cmdA, cmdB; wire [4:0] trA, trB; wire [11:0] fA, fB;
@@ -35,7 +39,7 @@ module tb_pred_system;
         check(!safeA && !safeB, "flat force with +-10 count noise: no trip");
         value = 12'h500; restart(12'h500); value = 12'h500 + 12'd160; repeat (6000) @(posedge clk);
         check(!safeA, "single 160-count step well below the limit: no trip (K=2 gives 480 < distance to limit)");
-        $display("TB tb_pred_system: PASS %0d FAIL %0d", pass, fail); $finish;
+        check(smonA.viol == 0 && smonB.viol == 0, "safety_monitor: no invariant violation (predictor on and off)"); $display("TB tb_pred_system: PASS %0d FAIL %0d VECTORS 0 NOTE directed ramps, predictor on vs off", pass, fail); $finish;
     end
     initial begin #200_000_000; $display("TB tb_pred_system: TIMEOUT"); $finish; end
 endmodule

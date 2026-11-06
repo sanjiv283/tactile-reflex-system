@@ -1,0 +1,301 @@
+{
+ "mutants": [
+  {
+   "id": "M01",
+   "name": "force limit uses > instead of >=",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor"
+  },
+  {
+   "id": "M02",
+   "name": "hysteresis removed (release at FORCE_MAX)",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top"
+  },
+  {
+   "id": "M03",
+   "name": "e-stop not a trip cause",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top,tb_de2_115_top,tb_pred_system,tb_replay,tb_replay_adversarial,tb_reset_recovery"
+  },
+  {
+   "id": "M04",
+   "name": "sensor fault not a trip cause",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top,tb_reset_recovery"
+  },
+  {
+   "id": "M05",
+   "name": "invalid ADC not a trip cause",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top,tb_reset_recovery"
+  },
+  {
+   "id": "M06",
+   "name": "'not armed' wait removed",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor"
+  },
+  {
+   "id": "M07",
+   "name": "predictive trip ignored",
+   "status": "KILLED",
+   "detected_by": "tb_pred_system"
+  },
+  {
+   "id": "M08",
+   "name": "AI class-2 cap removed",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top,tb_de2_115_top"
+  },
+  {
+   "id": "M09",
+   "name": "AI class-3 uses wrong cap",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top,tb_de2_115_top,tb_replay"
+  },
+  {
+   "id": "M10",
+   "name": "command not zeroed on trip",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top,tb_de2_115_top,tb_pred_system,tb_replay,tb_replay_adversarial,tb_reset_recovery"
+  },
+  {
+   "id": "M11",
+   "name": "override flag ignores class 3",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_replay"
+  },
+  {
+   "id": "M12",
+   "name": "predictor look-ahead K ignored",
+   "status": "KILLED",
+   "detected_by": "tb_pred_governor"
+  },
+  {
+   "id": "M13",
+   "name": "PWM kill removed",
+   "status": "KILLED",
+   "detected_by": "tb_pwm_generator,tb_top,tb_de2_115_top,tb_reset_recovery"
+  },
+  {
+   "id": "M14",
+   "name": "invalid-sample limit off by one",
+   "status": "KILLED",
+   "detected_by": "tb_fault_handler"
+  },
+  {
+   "id": "M15",
+   "name": "ADC watchdog disabled",
+   "status": "KILLED",
+   "detected_by": "tb_fault_handler,tb_top"
+  },
+  {
+   "id": "M16",
+   "name": "sensor fault can never be cleared",
+   "status": "KILLED",
+   "detected_by": "tb_fault_handler,tb_top,tb_reset_recovery"
+  },
+  {
+   "id": "M17",
+   "name": "railed-ADC threshold off by one",
+   "status": "KILLED",
+   "detected_by": "tb_input_conditioning,tb_top"
+  },
+  {
+   "id": "M18",
+   "name": "frame error never flagged",
+   "status": "KILLED",
+   "detected_by": "tb_adc_interface,tb_top,tb_reset_recovery"
+  },
+  {
+   "id": "M19",
+   "name": "AI integrity check disabled",
+   "status": "KILLED",
+   "detected_by": "tb_ai_control_interface,tb_top"
+  },
+  {
+   "id": "M20",
+   "name": "AI heartbeat timeout disabled",
+   "status": "KILLED",
+   "detected_by": "tb_ai_control_interface,tb_top,tb_de2_115_top"
+  },
+  {
+   "id": "M21",
+   "name": "LUT index uses wrong bits",
+   "status": "KILLED",
+   "detected_by": "tb_force_lut,tb_top,tb_de2_115_top,tb_replay,tb_replay_adversarial"
+  },
+  {
+   "id": "M22",
+   "name": "e-stop reads 'released' during reset",
+   "status": "KILLED",
+   "detected_by": "tb_top,tb_reset_recovery"
+  },
+  {
+   "id": "M23",
+   "name": "UART stop bit not checked",
+   "status": "KILLED",
+   "detected_by": "tb_uart_framing"
+  },
+  {
+   "id": "M24",
+   "name": "AI packet checksum ignored",
+   "status": "KILLED",
+   "detected_by": "tb_uart_link,tb_uart_framing,tb_de2_115_top,tb_host_link"
+  },
+  {
+   "id": "M25",
+   "name": "telemetry header byte changed",
+   "status": "KILLED",
+   "detected_by": "tb_de2_115_top,tb_telemetry_tx"
+  },
+  {
+   "id": "M26",
+   "name": "fault-clear button polarity inverted",
+   "status": "KILLED",
+   "detected_by": "tb_reset_recovery"
+  },
+  {
+   "id": "M27",
+   "name": "UART rx does not wait for idle after a framing error",
+   "status": "KILLED",
+   "detected_by": "tb_uart_framing"
+  },
+  {
+   "id": "M28",
+   "name": "UART rx does not wait for idle after reset",
+   "status": "KILLED",
+   "detected_by": "tb_uart_framing"
+  },
+  {
+   "id": "M29",
+   "name": "UART tx stop bit is 0",
+   "status": "KILLED",
+   "detected_by": "tb_uart_link,tb_uart_framing,tb_de2_115_top,tb_host_link,tb_telemetry_tx"
+  },
+  {
+   "id": "M30",
+   "name": "UART tx start bit is 1",
+   "status": "KILLED",
+   "detected_by": "tb_uart_link,tb_uart_framing,tb_de2_115_top,tb_host_link,tb_telemetry_tx"
+  },
+  {
+   "id": "M31",
+   "name": "UART tx bit time is one clock short",
+   "status": "KILLED",
+   "detected_by": "tb_uart_link,tb_uart_framing,tb_de2_115_top,tb_host_link,tb_telemetry_tx"
+  },
+  {
+   "id": "M32",
+   "name": "UART rx shifts MSB first",
+   "status": "KILLED",
+   "detected_by": "tb_uart_link,tb_uart_framing,tb_de2_115_top,tb_host_link,tb_telemetry_tx"
+  },
+  {
+   "id": "M33",
+   "name": "UART tx idles low after reset",
+   "status": "KILLED",
+   "detected_by": "tb_uart_link,tb_uart_framing,tb_host_link,tb_telemetry_tx"
+  },
+  {
+   "id": "M35",
+   "name": "UART rx idle filter too short (phantom high after reset re-arms it)",
+   "status": "KILLED",
+   "detected_by": "tb_uart_framing"
+  },
+  {
+   "id": "M34",
+   "name": "UART rx accepts any start-bit glitch (no mid-bit check)",
+   "status": "KILLED",
+   "detected_by": "tb_uart_framing"
+  },
+  {
+   "id": "M36",
+   "name": "clear key not edge-triggered (level clears)",
+   "status": "KILLED",
+   "detected_by": "tb_reset_recovery,tb_debounce"
+  },
+  {
+   "id": "M37",
+   "name": "debounce never arms after warm-up (no clear possible)",
+   "status": "KILLED",
+   "detected_by": "tb_de2_115_top,tb_reset_recovery,tb_debounce"
+  },
+  {
+   "id": "M38",
+   "name": "clear key bypasses debounce",
+   "status": "KILLED",
+   "detected_by": "tb_reset_recovery"
+  },
+  {
+   "id": "M39",
+   "name": "e-stop key routed through debounced clear path (slow stop)",
+   "status": "KILLED",
+   "detected_by": "tb_de2_115_top,tb_reset_recovery"
+  },
+  {
+   "id": "M40",
+   "name": "reset not synchronised on release (raw KEY[3] into the wrapper)",
+   "status": "KILLED",
+   "detected_by": "tb_de2_115_top,tb_reset_recovery"
+  },
+  {
+   "id": "M41",
+   "name": "reset_sync releases after one stage",
+   "status": "KILLED",
+   "detected_by": "tb_de2_115_top,tb_reset_recovery,tb_debounce"
+  },
+  {
+   "id": "M42",
+   "name": "PWM ignores the kill input",
+   "status": "KILLED",
+   "detected_by": "tb_pwm_generator,tb_top,tb_de2_115_top,tb_reset_recovery"
+  },
+  {
+   "id": "M43",
+   "name": "governor does not zero the command on trip",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top,tb_de2_115_top,tb_pred_system,tb_replay,tb_replay_adversarial,tb_reset_recovery"
+  },
+  {
+   "id": "M44",
+   "name": "invalid ADC no longer trips the governor",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top,tb_reset_recovery"
+  },
+  {
+   "id": "M45",
+   "name": "AI class 2 can RAISE the command to HOLD_CAP",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top,tb_replay,tb_replay_adversarial"
+  },
+  {
+   "id": "M46",
+   "name": "force limit comparison disabled",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top,tb_de2_115_top,tb_pred_system,tb_replay,tb_replay_adversarial"
+  },
+  {
+   "id": "M47",
+   "name": "governor reset leaves safe_state low",
+   "status": "KILLED",
+   "detected_by": "tb_safety_governor,tb_top,tb_de2_115_top,tb_pred_system,tb_replay,tb_replay_adversarial,tb_reset_recovery"
+  },
+  {
+   "id": "M48",
+   "name": "PWM loads the duty every clock (not only at the period boundary)",
+   "status": "KILLED",
+   "detected_by": "tb_pwm_generator"
+  },
+  {
+   "id": "M49",
+   "name": "PWM compare uses <= (a zero duty still gives a pulse)",
+   "status": "KILLED",
+   "detected_by": "tb_pwm_generator,tb_top"
+  }
+ ],
+ "killed": 49,
+ "survived": 0,
+ "invalid": 0
+}

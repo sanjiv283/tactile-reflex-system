@@ -1,0 +1,185 @@
+{
+ "classes": {
+  "bounded": "none claimed",
+  "not_established": "slope predictor (M07, M12), LUT, fault_handler, debounce/reset sync, UART, host, timing, analogue behaviour, any multi-clock liveness",
+  "proven": "W1-W6, P1-P15 (see formal/*.v), for every state and input of safety_governor and pwm_generator"
+ },
+ "depth": 5,
+ "mutants": {
+  "M01": {
+   "name": "force limit uses > instead of >=",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M02": {
+   "name": "hysteresis removed (release at FORCE_MAX)",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M03": {
+   "name": "e-stop not a trip cause",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M04": {
+   "name": "sensor fault not a trip cause",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M05": {
+   "name": "invalid ADC not a trip cause",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M06": {
+   "name": "'not armed' wait removed",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M07": {
+   "name": "predictive trip ignored",
+   "refuted_by": [],
+   "status": "not refuted"
+  },
+  "M08": {
+   "name": "AI class-2 cap removed",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M09": {
+   "name": "AI class-3 uses wrong cap",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M10": {
+   "name": "command not zeroed on trip",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M11": {
+   "name": "override flag ignores class 3",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M12": {
+   "name": "predictor look-ahead K ignored",
+   "refuted_by": [],
+   "status": "not refuted"
+  },
+  "M13": {
+   "name": "PWM kill removed",
+   "refuted_by": [
+    "W1-W6 (PWM)",
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M42": {
+   "name": "PWM ignores the kill input",
+   "refuted_by": [
+    "W1-W6 (PWM)",
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M43": {
+   "name": "governor does not zero the command on trip",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M44": {
+   "name": "invalid ADC no longer trips the governor",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M45": {
+   "name": "AI class 2 can RAISE the command to HOLD_CAP",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M46": {
+   "name": "force limit comparison disabled",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M47": {
+   "name": "governor reset leaves safe_state low",
+   "refuted_by": [
+    "P1-P15 (governor + PWM, PRED_EN=0)",
+    "P1-P14 (governor + PWM, PRED_EN=1)"
+   ],
+   "status": "refuted"
+  },
+  "M48": {
+   "name": "PWM loads the duty every clock (not only at the period boundary)",
+   "refuted_by": [
+    "W1-W6 (PWM)"
+   ],
+   "status": "refuted"
+  },
+  "M49": {
+   "name": "PWM compare uses <= (a zero duty still gives a pulse)",
+   "refuted_by": [
+    "W1-W6 (PWM)"
+   ],
+   "status": "refuted"
+  }
+ },
+ "real_rtl": {
+  "P1-P14 (governor + PWM, PRED_EN=1)": "holds",
+  "P1-P15 (governor + PWM, PRED_EN=0)": "holds",
+  "W1-W6 (PWM)": "holds"
+ },
+ "summary": {
+  "mutants": 21,
+  "not_refuted": [
+   "M07",
+   "M12"
+  ],
+  "refuted": 19
+ }
+}

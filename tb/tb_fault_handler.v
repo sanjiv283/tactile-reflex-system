@@ -23,6 +23,6 @@ module tb_fault_handler;
         clear; check(ea == 0, "e-stop clears only on fault_clear with the button released");
         @(negedge clk); es_n = 0; sample(0); clear; check(ea == 1, "fault_clear cannot clear a pressed e-stop"); es_n = 1; clear;
         @(negedge clk); es_n = 0; rst_n = 0; @(posedge clk); @(posedge clk); #1 check(ea == 1 && sf == 0, "reset: e-stop state follows the input");
-        $display("TB tb_fault_handler: PASS %0d FAIL %0d", pass, fail); $finish;
+        $display("TB tb_fault_handler: PASS %0d FAIL %0d VECTORS 0 NOTE directed assertions only", pass, fail); $finish;
     end
 endmodule
