@@ -38,7 +38,8 @@ module tactile_reflex_top #(
     output wire [7:0]  cmd_out,
     output wire [4:0]  trip_reason,
     output wire        ai_overridden,
-    output wire        zero_run        // advisory only, never used by the governor
+    output wire        zero_run,       // advisory only, never used by the governor
+    output wire        rst_sync_n      // the synchronised reset used inside the core: async assert, synchronous release; use it for any logic outside the core
 );
     // reset: asynchronous assert, synchronous release
     reg [1:0] rs;
@@ -46,6 +47,7 @@ module tactile_reflex_top #(
         if (!rst_n) rs <= 2'b00; else rs <= {rs[0], 1'b1};
     end
     wire rst_s = rs[1];
+    assign rst_sync_n = rst_s;
 
     // input synchronisers
     reg [1:0] es, fc;
