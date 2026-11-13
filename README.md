@@ -39,6 +39,13 @@ No ARM processor, so the AI/ML runs on a laptop over the board's RS-232 port (11
 - Quartus: create the project in the repository root, set `de2_115_top` as top level, add every file in `rtl/`, import the QSF and SDC.
 - `python3 host/ai_host.py --selftest` checks the packet format and features without hardware; `--port COM3 --log run.csv` runs the loop.
 
+ADC line diagnostics: a zero reading is legitimate (no contact) and is never treated as a fault. A disconnected or unpowered ADC reads all ones
+(weak pull-up on `ADC_MISO` in the QSF) and trips the existing frame-error path. Optional `IDLE_CHK=1` (with `ADC_GAP>=64`) also flags a frame
+when MISO is still low at the end of the CS-high gap (stuck-low line); default off until the Pmod AD1 tri-state behaviour is confirmed on hardware.
+`zero_run` (LEDG[2]) is advisory only: exact zero for `ZERO_FRAMES` frames, never used by the governor. Tested in `tb/tb_stuck_adc.v`.
+`ADC_GAP` must be 1..256, and at least 64 when `IDLE_CHK=1`; any other value is an elaboration error (unknown module `ERROR_adc_interface_GAP_...`), never a silent clamp. Defaults stay `IDLE_CHK=0`, `ADC_GAP=8`, `ZERO_FRAMES=200000`. Checked by `sim/check_adc_gap_guard.sh`.
+A cut sensor cable still reads as no contact and cannot be detected from the ADC alone.
+
 Status: RTL simulated (all testbenches pass) and checked with a generic yosys synthesis run. Quartus synthesis, timing closure
 and board bring-up have not been run.
 

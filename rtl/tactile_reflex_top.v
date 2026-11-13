@@ -2,6 +2,9 @@
 // The AI path only enters through ai_control_interface and can only lower the command.
 module tactile_reflex_top #(
     parameter CLK_DIV      = 6,
+    parameter ADC_GAP      = 8,          // 1..256, and >= 64 when IDLE_CHK=1; other values fail elaboration (guard in adc_interface)
+    parameter IDLE_CHK     = 0,           // 1 = flag the frame when MISO is low at the end of the CS-high gap (needs ADC_GAP >= 64 and a pull-up)
+    parameter ZERO_FRAMES  = 200000,      // advisory zero_run after this many consecutive exact-zero frames (0 = off)
     parameter WD_CYCLES    = 2000,
     parameter AI_TIMEOUT   = 500000,
     parameter [11:0] FORCE_MAX = 12'hA00,
@@ -34,7 +37,8 @@ module tactile_reflex_top #(
     output wire [11:0] force_out,
     output wire [7:0]  cmd_out,
     output wire [4:0]  trip_reason,
-    output wire        ai_overridden
+    output wire        ai_overridden,
+    output wire        zero_run        // advisory only, never used by the governor
 );
     // reset: asynchronous assert, synchronous release
     reg [1:0] rs;
@@ -51,13 +55,13 @@ module tactile_reflex_top #(
     end
 
     wire [11:0] sample; wire sample_valid, frame_err;
-    adc_interface #(.CLK_DIV(CLK_DIV)) u_adc (.clk(clk), .rst_n(rst_s), .adc_miso(adc_miso),
+    adc_interface #(.CLK_DIV(CLK_DIV), .GAP(ADC_GAP), .IDLE_CHK(IDLE_CHK)) u_adc (.clk(clk), .rst_n(rst_s), .adc_miso(adc_miso),
         .adc_cs_n(adc_cs_n), .adc_sclk(adc_sclk), .sample(sample), .sample_valid(sample_valid), .frame_err(frame_err));
     assign dbg_sample_valid = sample_valid;
 
     wire [11:0] force_code; wire force_valid, adc_invalid;
-    input_conditioning u_cond (.clk(clk), .rst_n(rst_s), .sample(sample), .sample_valid(sample_valid),
-        .frame_err(frame_err), .force_code(force_code), .force_valid(force_valid), .adc_invalid(adc_invalid));
+    input_conditioning #(.ZERO_FRAMES(ZERO_FRAMES)) u_cond (.clk(clk), .rst_n(rst_s), .sample(sample), .sample_valid(sample_valid),
+        .frame_err(frame_err), .force_code(force_code), .force_valid(force_valid), .adc_invalid(adc_invalid), .zero_run(zero_run));
 
     wire [11:0] lut_force; wire [7:0] lut_cmd; wire lut_valid;
     force_lut #(.LUT_FILE(LUT_FILE)) u_lut (.clk(clk), .rst_n(rst_s), .force_code(force_code),

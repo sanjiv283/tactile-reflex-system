@@ -29,3 +29,8 @@ set_location_assignment PIN_G9   -to UART_TXD
 # GPIO header (JP5), 3.3 V: fill in from the board manual
 # ADC_CS_N, ADC_SCLK, ADC_MISO, ESTOP_EXT_N, PWM_OUT, DBG_SAMPLE_VALID, DBG_SAFE_STATE
 # set_location_assignment PIN_xxx -to ADC_CS_N
+
+# Weak pull-up on the ADC data line: a disconnected or unpowered ADC then reads all ones (caught by frame_err), and the
+# AD7476A releases MISO while CS is high, which the optional IDLE_CHK diagnostic uses. UNVERIFIED on hardware:
+# confirm the Pmod AD1 has no series network that defeats the pull-up.
+set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to ADC_MISO
