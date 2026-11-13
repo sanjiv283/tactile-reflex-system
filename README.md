@@ -44,6 +44,7 @@ ADC line diagnostics: a zero reading is legitimate (no contact) and is never tre
 when MISO is still low at the end of the CS-high gap (stuck-low line); default off until the Pmod AD1 tri-state behaviour is confirmed on hardware.
 `zero_run` (LEDG[2]) is advisory only: exact zero for `ZERO_FRAMES` frames, never used by the governor. Tested in `tb/tb_stuck_adc.v`.
 `ADC_GAP` must be 1..256, and at least 64 when `IDLE_CHK=1`; any other value is an elaboration error (unknown module `ERROR_adc_interface_GAP_...`), never a silent clamp. Defaults stay `IDLE_CHK=0`, `ADC_GAP=8`, `ZERO_FRAMES=200000`. Checked by `sim/check_adc_gap_guard.sh`.
+Fault clear (T-3): release-then-press only. A clear request is a one-cycle pulse after the button has been released for `CLR_DB` clocks and then pressed and stable for `CLR_DB` clocks (board: 50000 = 1 ms; unit tests: 2; `CLR_DB` below 2 is an elaboration error, checked by `sim/check_clr_db_guard.sh`). Holding the button never clears, a button held through reset is not a press, a request is accepted only if the e-stop pin is released and there is no ADC timeout or persistent-invalid fault, and then both latches clear together; a rejected request is discarded. E-stop assertion is not debounced (5 clocks to PWM low). Tests: `tb_fault_clear`, `tb_fault_clear_sys`, `tb_fault_clear_de2`.
 A cut sensor cable still reads as no contact and cannot be detected from the ADC alone.
 
 Status: RTL simulated (all testbenches pass) and checked with a generic yosys synthesis run. Quartus synthesis, timing closure

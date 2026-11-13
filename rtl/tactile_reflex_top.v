@@ -6,6 +6,7 @@ module tactile_reflex_top #(
     parameter IDLE_CHK     = 0,           // 1 = flag the frame when MISO is low at the end of the CS-high gap (needs ADC_GAP >= 64 and a pull-up)
     parameter ZERO_FRAMES  = 200000,      // advisory zero_run after this many consecutive exact-zero frames (0 = off)
     parameter WD_CYCLES    = 2000,
+    parameter CLR_DB       = 2,           // fault-clear debounce in clocks (the board wrapper uses 50000 = 1 ms)
     parameter AI_TIMEOUT   = 500000,
     parameter [11:0] FORCE_MAX = 12'hA00,
     parameter [11:0] FORCE_REL = 12'h900,
@@ -52,8 +53,11 @@ module tactile_reflex_top #(
     // input synchronisers
     reg [1:0] es, fc;
     always @(posedge clk) begin
-        if (!rst_s) begin es <= 2'b00; fc <= 2'b00; end   // e-stop reads "pressed" during reset
-        else begin es <= {es[0], estop_n}; fc <= {fc[0], fault_clear}; end
+        if (!rst_s) es <= 2'b00;                           // e-stop reads "pressed" during reset
+        else        es <= {es[0], estop_n};
+        // fc is NOT reset: it keeps tracking the real button through reset, so a button held across reset is still seen as
+        // held when reset ends. A reset value of 0 would fake a "released" period that arms the clear detector.
+        fc <= {fc[0], fault_clear};
     end
 
     wire [11:0] sample; wire sample_valid, frame_err;
@@ -70,7 +74,7 @@ module tactile_reflex_top #(
         .force_valid(force_valid), .force_code_o(lut_force), .lut_cmd(lut_cmd), .lut_valid(lut_valid));
 
     wire [2:0] fault_code;
-    fault_handler #(.WD_CYCLES(WD_CYCLES)) u_fault (.clk(clk), .rst_n(rst_s), .sample_valid(force_valid),
+    fault_handler #(.WD_CYCLES(WD_CYCLES), .CLR_DB(CLR_DB)) u_fault (.clk(clk), .rst_n(rst_s), .sample_valid(force_valid),
         .adc_invalid(adc_invalid), .estop_n(es[1]), .fault_clear(fc[1]),
         .sensor_fault(sensor_fault), .estop_active(estop_active), .fault_code(fault_code));
 

@@ -10,7 +10,8 @@ module de2_115_top #(
     parameter PRED_WIN     = 150000,
     parameter ADC_GAP      = 8,        // 1..256, and >= 64 when IDLE_CHK = 1; other values fail elaboration
     parameter IDLE_CHK     = 0,        // 1 = MISO idle-level check (needs the weak pull-up from the QSF)
-    parameter ZERO_FRAMES  = 200000    // advisory zero-reading LED (LEDG[2]), 0 = off
+    parameter ZERO_FRAMES  = 200000,   // advisory zero-reading LED (LEDG[2]), 0 = off
+    parameter CLR_DB       = 50000     // KEY[1] fault-clear debounce: 50000 clocks = 1 ms at 50 MHz
 ) (
     input  wire        CLOCK_50,
     input  wire [3:0]  KEY,
@@ -33,7 +34,7 @@ module de2_115_top #(
     ai_uart_bridge #(.CLKS_PER_BIT(CLKS_PER_BIT)) u_bridge (.clk(CLOCK_50), .rst_n(rst_s), .rxd(UART_RXD), .ai_gpio(ai_gpio));
 
     tactile_reflex_top #(.AI_TIMEOUT(AI_TIMEOUT), .LUT_FILE(LUT_FILE), .PRED_EN(PRED_EN), .PRED_WIN(PRED_WIN),
-        .ADC_GAP(ADC_GAP), .IDLE_CHK(IDLE_CHK), .ZERO_FRAMES(ZERO_FRAMES)) u_core (
+        .ADC_GAP(ADC_GAP), .IDLE_CHK(IDLE_CHK), .ZERO_FRAMES(ZERO_FRAMES), .CLR_DB(CLR_DB)) u_core (
         .clk(CLOCK_50), .rst_n(KEY[3]), .adc_cs_n(ADC_CS_N), .adc_sclk(ADC_SCLK), .adc_miso(ADC_MISO),
         .estop_n(KEY[0] & ESTOP_EXT_N), .fault_clear(~KEY[1]), .ai_gpio(ai_gpio),
         .pwm_out(pwm), .safe_state(safe), .sensor_fault(sfault), .estop_active(estop_a), .ai_valid(ai_v),
